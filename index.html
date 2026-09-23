@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=3" />
+<meta name="theme-color" content="#6366f1" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="format-detection" content="telephone=no" />
+<title>英语单词拼写卡</title>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+<style>
+  /* ========== 手机端全局增强 ========== */
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overscroll-behavior-y: contain; }
+  html {
+    -webkit-text-size-adjust: 100%;  /* 禁止 iOS 文字自动缩放 */
+    -moz-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    min-height: 100dvh;                    /* 兼容 iOS Safari 动态地址栏 */
+    padding: calc(var(--safe-top) + 12px) calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 16px) calc(var(--safe-left) + 12px);
+    color: #1f2937;
+    /* 禁止非输入元素的文字选择（避免长按选中） */
+    -webkit-user-select: none;
+    user-select: none;
+    overflow-x: hidden;
+  }
+  /* 输入框/可编辑元素恢复选中 */
+  input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+    font-size: 16px;           /* ≥16px 阻止 iOS 聚焦时自动放大 */
+  }
+  button, .btn, .mode-tab, .tab-bar, .upload-area, .link-btn, .pron-btn, .image-remove {
+    touch-action: manipulation; /* 去除 300ms 点击延迟 */
+  }
+
+  #app { max-width: 520px; margin: 0 auto; width: 100%; }
+
+  /* ========== 顶部标题 ========== */
+  .header { text-align: center; color: #fff; padding: 8px 0 16px; }
+  .header h1 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  .header p { font-size: 12px; opacity: .8; margin-top: 4px; }
+
+  /* ========== 卡片容器 ========== */
+  .card-panel {
+    background: #fff; border-radius: 18px; padding: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.15); margin-bottom: 14px;
+  }
+
+  /* ========== 上传区域 ========== */
+  .upload-area {
+    border: 2px dashed #c7d2fe; border-radius: 14px; padding: 28px 18px;
+    text-align: center; background: #f5f7ff; transition: all .2s; cursor: pointer;
+  }
+  .upload-area:active { background: #eef1ff; transform: scale(.98); }
+  .upload-icon { font-size: 40px; margin-bottom: 10px; }
+  .upload-text { color: #6366f1; font-weight: 600; font-size: 15px; }
+  .upload-hint { color: #9ca3af; font-size: 12px; margin-top: 6px; }
+  #fileInput { display: none; }
+
+  .image-preview { margin-top: 12px; border-radius: 12px; overflow: hidden; position: relative; }
+  .image-preview img { width: 100%; display: block; }
+  .image-remove {
+    position: absolute; top: 8px; right: 8px; width: 32px; height: 32px; border-radius: 50%;
+    background: rgba(0,0,0,.6); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; border: none; cursor: pointer;
+  }
+
+  /* ========== 按钮 ========== */
+  .btn {
+    width: 100%; padding: 15px 14px; border: none; border-radius: 12px;
+    font-size: 16px; font-weight: 600; cursor: pointer; transition: all .15s; margin-top: 12px;
+    -webkit-appearance: none; appearance: none;
+    min-height: 48px;  /* 移动端可点击区 ≥48px */
+  }
+  .btn-primary { background: #6366f1; color: #fff; }
+  .btn-primary:active { background: #4f46e5; transform: scale(.98); }
+  .btn-primary:disabled { background: #c7d2fe; cursor: not-allowed; }
+  .btn-secondary { background: #f3f4f6; color: #374151; }
+  .btn-secondary:active { background: #e5e7eb; }
+  .btn-danger { background: #fee2e2; color: #dc2626; }
+  .btn-warning { background: #fef3c7; color: #b45309; }
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+  .btn-row .btn { flex: 1; margin-top: 0; }
+
+  /* ========== 进度条 ========== */
+  .progress-wrap { margin-top: 14px; }
+  .progress-bar {
+    width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, #6366f1, #a855f7); transition: width .3s;
+  }
+  .progress-text { font-size: 12px; color: #6b7280; margin-top: 6px; text-align: center; }
+
+  /* ========== 单词列表（可滚动） ========== */
+  .word-list-title {
+    font-size: 15px; font-weight: 700; color: #374151;
+    margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .word-count {
+    font-size: 12px; font-weight: 500; background: #eef2ff;
+    color: #6366f1; padding: 3px 10px; border-radius: 20px;
+  }
+  .scroll-list {
+    max-height: 45vh; overflow-y: auto;
+    -webkit-overflow-scrolling: touch;  /* iOS 滚动惯性 */
+    padding-right: 2px;
+  }
+
+  .word-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; background: #f9fafb; border-radius: 10px; margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .word-item .en { font-weight: 700; color: #4338ca; min-width: 80px; flex-shrink: 0; }
+  .word-item .zh { color: #374151; flex: 1; min-width: 0; }
+  .word-item .phonetic { color: #9ca3af; font-size: 11px; margin-left: 4px; }
+  .word-item button {
+    background: none; border: none; color: #ef4444; font-size: 18px; cursor: pointer; padding: 4px 8px;
+    min-width: 32px; min-height: 32px;
+  }
+  .word-item .edit-en { width: 90px; font-weight: 700; }
+  .word-item input {
+    border: none; background: transparent; outline: none; font-size: 15px;
+    padding: 2px; border-bottom: 1px dashed #c7d2fe; border-radius: 4px;
+  }
+
+  /* ========== 模式切换 ========== */
+  .mode-tabs {
+    display: flex; background: #f3f4f6; border-radius: 12px; padding: 4px; margin-bottom: 16px;
+  }
+  .mode-tab {
+    flex: 1; text-align: center; padding: 11px 8px;
+    font-size: 14px; font-weight: 600; color: #6b7280;
+    border-radius: 10px; cursor: pointer; transition: all .2s;
+    min-height: 44px; display: flex; align-items: center; justify-content: center;
+  }
+  .mode-tab.active { background: #fff; color: #6366f1; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+
+  /* ========== 翻转卡片 ========== */
+  .flip-wrap { perspective: 1200px; margin-top: 8px; }
+  .flip-card {
+    position: relative; width: 100%;
+    aspect-ratio: 4 / 3;  /* 响应式高度 */
+    min-height: 180px;
+    max-height: 240px;
+    transform-style: preserve-3d;
+    transition: transform .6s cubic-bezier(.4,.0,.2,1);
+  }
+  .flip-card.flipped { transform: rotateY(180deg); }
+  .flip-face {
+    position: absolute; inset: 0;
+    backface-visibility: hidden; border-radius: 16px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px; text-align: center;
+    overflow: hidden;
+  }
+  .flip-front { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; }
+  .flip-back { background: #fff; border: 2px solid #e5e7eb; transform: rotateY(180deg); }
+  .flip-label { font-size: 12px; opacity: .8; margin-bottom: 6px; letter-spacing: 2px; }
+  .flip-zh { font-size: clamp(20px, 5.5vw, 28px); font-weight: 700; line-height: 1.4; word-break: break-all; }
+  .flip-en { font-size: clamp(24px, 7vw, 34px); font-weight: 800; color: #4338ca; letter-spacing: 2px; word-break: break-all; }
+  .flip-phonetic { font-size: 14px; color: #6b7280; margin-top: 6px; font-style: italic; }
+  .flip-hint { font-size: 12px; opacity: .75; margin-top: 8px; }
+
+  /* ========== 音标+发音 ========== */
+  .pron-row {
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    margin-bottom: 14px;
+  }
+  .pron-ipa { font-size: 16px; color: #6b7280; font-style: italic; }
+  .pron-btn {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: #eef2ff; border: none; color: #6366f1; font-size: 22px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all .2s;
+    -webkit-appearance: none; appearance: none;
+  }
+  .pron-btn:active { background: #c7d2fe; transform: scale(.9); }
+
+  /* ========== 输入框 ========== */
+  .answer-input {
+    width: 100%; padding: 14px 16px;
+    border: 2px solid #e5e7eb; border-radius: 12px;
+    font-size: 18px; text-align: center; font-weight: 600;
+    letter-spacing: 2px; outline: none; transition: all .2s; background: #fff;
+    -webkit-appearance: none; appearance: none;
+  }
+  .answer-input:focus { border-color: #6366f1; background: #fafaff; }
+  .answer-input.correct { border-color: #10b981; background: #ecfdf5; color: #059669; }
+  .answer-input.wrong { border-color: #ef4444; background: #fef2f2; color: #dc2626; }
+  .answer-input.shake { animation: shake .4s; }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25% { transform: translateX(-6px); }
+    75% { transform: translateX(6px); }
+  }
+
+  .blank-wrap {
+    display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+    gap: 2px; padding: 6px 0;
+  }
+  .blank-wrap span {
+    font-size: 22px; font-weight: 600; color: #374151; line-height: 1;
+    padding: 4px 1px;
+  }
+  .blank-input {
+    display: inline-flex; align-items: center; justify-content: center;
+    border: none; border-bottom: 2px solid #6366f1;
+    background: transparent;
+    font-size: 22px; font-weight: 700; color: #4338ca;
+    text-align: center;
+    width: 28px; height: 36px; padding: 0;
+    outline: none; margin: 0 1px;
+    -webkit-appearance: none; appearance: none;
+    line-height: 1;
+  }
+  .blank-input:focus { border-bottom-color: #4338ca; background: rgba(99,102,241,.06); border-radius: 4px; }
+  .blank-input.correct { border-bottom-color: #10b981; color: #059669; }
+  .blank-input.wrong { border-bottom-color: #ef4444; color: #dc2626; }
+
+  /* ========== 控制按钮 ========== */
+  .quiz-controls { display: flex; gap: 10px; margin-top: 14px; }
+  .quiz-controls .btn { flex: 1; margin-top: 0; }
+
+  .quiz-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 12px; font-size: 13px; color: #6b7280;
+    flex-wrap: wrap; gap: 6px;
+  }
+  .quiz-progress {
+    background: #eef2ff; color: #6366f1; padding: 4px 10px; border-radius: 20px; font-weight: 600;
+    font-size: 12px;
+  }
+
+  .nav-dots {
+    display: flex; justify-content: center; gap: 6px; margin-top: 14px;
+    flex-wrap: wrap; max-width: 100%;
+  }
+  .nav-dots span {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #e5e7eb; transition: all .2s;
+  }
+  .nav-dots span.active { background: #6366f1; width: 20px; border-radius: 4px; }
+  .nav-dots span.done { background: #10b981; }
+  .nav-dots span.wrong { background: #ef4444; }
+
+  /* ========== 结果页 ========== */
+  .result-score { text-align: center; padding: 16px 0; }
+  .result-circle {
+    width: 110px; height: 110px; border-radius: 50%;
+    background: linear-gradient(135deg, #10b981, #059669);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px; color: #fff;
+  }
+  .result-score .score-num { font-size: 40px; font-weight: 800; }
+  .result-score .score-total { font-size: 16px; opacity: .8; }
+  .result-msg { font-size: 16px; color: #374151; font-weight: 600; }
+  .result-detail { margin-top: 16px; max-height: 40vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .result-item {
+    display: flex; align-items: center; padding: 10px 12px;
+    background: #f9fafb; border-radius: 10px; margin-bottom: 6px; font-size: 14px;
+  }
+  .result-item .icon { font-size: 18px; margin-right: 10px; flex-shrink: 0; }
+  .result-item .en { font-weight: 700; flex: 1; min-width: 0; word-break: break-all; }
+  .result-item .answer { color: #6b7280; font-size: 13px; flex-shrink: 0; margin-left: 8px; }
+  .result-item.wrong { background: #fef2f2; }
+  .result-item.wrong .answer { color: #dc2626; }
+
+  /* ========== Toast ========== */
+  .toast {
+    position: fixed;
+    bottom: calc(var(--safe-bottom) + 32px);
+    left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,.85); color: #fff;
+    padding: 10px 22px; border-radius: 24px; font-size: 14px;
+    z-index: 999; animation: toastIn .3s;
+    max-width: 90vw; text-align: center;
+  }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+
+  /* ========== Modal ========== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    padding: calc(var(--safe-top) + 20px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 20px) calc(var(--safe-left) + 20px);
+  }
+  .modal {
+    background: #fff; border-radius: 16px; padding: 20px; width: 100%; max-width: 360px;
+    max-height: 100%; overflow-y: auto;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 14px; color: #374151; }
+  .modal input {
+    width: 100%; padding: 13px 14px; border: 2px solid #e5e7eb;
+    border-radius: 10px; font-size: 16px; margin-bottom: 10px; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  .modal input:focus { border-color: #6366f1; }
+  .modal .btn { margin-top: 6px; }
+
+  /* ========== 错题本 ========== */
+  .error-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; background: #fef2f2; border-radius: 10px; margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .error-item .en { font-weight: 700; color: #b91c1c; min-width: 80px; flex-shrink: 0; }
+  .error-item .zh { color: #374151; flex: 1; min-width: 0; }
+  .error-item .meta { color: #9ca3af; font-size: 11px; flex-shrink: 0; }
+
+  /* 通用 */
+  .link-btn {
+    background: none; border: none; color: #6366f1;
+    font-size: 14px; cursor: pointer; padding: 6px 10px;
+    min-height: 36px; min-width: 36px;
+    -webkit-appearance: none; appearance: none;
+  }
+  .link-btn:active { opacity: .7; }
+  .section-title {
+    font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 8px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .tab-bar {
+    display: flex; background: #f3f4f6; border-radius: 12px; padding: 4px; margin-bottom: 12px;
+  }
+  .tab-bar .mode-tab { flex: 1; }
+  .tab-bar .mode-tab.active { background: #fff; color: #6366f1; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+
+  /* ========== 超小屏适配 (< 360px，iPhone SE) ========== */
+  @media (max-width: 360px) {
+    .header h1 { font-size: 18px; }
+    .card-panel { padding: 14px; border-radius: 16px; }
+    .flip-card { min-height: 160px; }
+    .flip-zh { font-size: 20px; }
+    .flip-en { font-size: 26px; }
+    .blank-input { width: 24px; font-size: 20px; height: 32px; }
+    .word-item .edit-en { width: 80px; }
+    .result-circle { width: 96px; height: 96px; }
+    .result-score .score-num { font-size: 34px; }
+    .pron-btn { width: 40px; height: 40px; font-size: 20px; }
+  }
+
+  /* ========== 大屏平板横屏：保持手机 UI 居中 ========== */
+  @media (min-width: 600px) {
+    #app { max-width: 560px; }
+  }
+
+  /* 防止 iOS 输入框原生阴影 */
+  input { -webkit-appearance: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 顶部标题 -->
+  <div class="header">
+    <h1>📚 英语单词拼写卡</h1>
+    <p>上传课本单词表 · 自动识别 · 练习拼写</p>
+  </div>
+
+  <!-- 步骤 1: 上传识别 -->
+  <div class="card-panel" v-if="step === 'upload'">
+    <div class="upload-area" @click="triggerUpload" v-if="!previewUrl">
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">点击上传单词表图片</div>
+      <div class="upload-hint">课本词表截图或拍照，手机本地识别更安全</div>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" @change="handleFile" />
+
+    <div class="image-preview" v-if="previewUrl">
+      <img :src="previewUrl" alt="预览" />
+      <button class="image-remove" @click="removeImage">×</button>
+    </div>
+
+    <button class="btn btn-primary" :disabled="!previewUrl || ocrLoading" @click="startOcr">
+      <span v-if="ocrLoading">识别中...</span>
+      <span v-else>🔍 云端识别</span>
+    </button>
+
+    <div class="progress-wrap" v-if="ocrLoading">
+      <div class="progress-bar"><div class="progress-fill" :style="{ width: ocrProgress + '%' }"></div></div>
+      <div class="progress-text">{{ ocrStatus }} {{ ocrProgress }}%</div>
+    </div>
+
+    <!-- 单词列表 -->
+    <div v-if="words.length > 0" style="margin-top: 16px;">
+      <div class="word-list-title">
+        <span>识别结果 · 请核对</span>
+        <span class="word-count">{{ words.length }} 个单词</span>
+      </div>
+      <div class="scroll-list">
+        <div v-for="(w, i) in words" :key="i" class="word-item">
+          <input class="edit-en" v-model="w.word" @blur="saveToStorage" />
+          <input style="flex:1" v-model="w.zh" @blur="saveToStorage" />
+          <button @click="removeWord(i)">×</button>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" @click="addManual">＋ 手动添加</button>
+        <button class="btn btn-primary" @click="goQuiz">开始练习</button>
+      </div>
+      <button class="btn btn-danger" @click="resetAll">🔄 清空重传</button>
+    </div>
+
+    <!-- 已有错题本 -->
+    <div v-if="errors.length > 0" style="margin-top: 16px;">
+      <div class="section-title">
+        <span>❌ 错题本（{{ errors.length }}）</span>
+        <button class="link-btn" @click="errors = []; saveToStorage()">清空</button>
+      </div>
+      <div class="scroll-list" style="max-height: 25vh;">
+        <div v-for="(e, i) in errors" :key="i" class="error-item">
+          <span class="en">{{ e.word }}</span>
+          <span class="zh">{{ e.zh }}</span>
+          <span class="meta">×{{ e.count || 1 }}</span>
+        </div>
+      </div>
+      <button class="btn btn-warning" @click="practiceErrors">只练错题</button>
+    </div>
+  </div>
+
+  <!-- 步骤 2: 练习测试 -->
+  <div class="card-panel" v-if="step === 'quiz'">
+    <!-- 模式切换（填空在前） -->
+    <div class="tab-bar">
+      <div class="mode-tab" :class="{ active: mode === 'blank' }" @click="switchMode('blank')">🔲 填空模式</div>
+      <div class="mode-tab" :class="{ active: mode === 'full' }" @click="switchMode('full')">✏️ 完整拼写</div>
+    </div>
+
+    <!-- 进度 -->
+    <div class="quiz-meta">
+      <span>共 {{ queue.length }} / {{ results.length }} 项</span>
+      <span class="quiz-progress">✅ {{ progress.correct }} | ❌ {{ progress.wrong }}</span>
+    </div>
+
+    <!-- 卡片 -->
+    <div class="flip-wrap">
+      <div class="flip-card" :class="{ flipped: showAnswer }">
+        <div class="flip-face flip-front">
+          <div class="flip-label">中文意思</div>
+          <div class="flip-zh">{{ currentWord.zh }}</div>
+          <div class="flip-hint" v-if="mode === 'blank'">填空模式 · 看中文写英文</div>
+          <div class="flip-hint" v-else>完整拼写 · 看中文写英文</div>
+        </div>
+        <div class="flip-face flip-back">
+          <div class="flip-label">英文单词</div>
+          <div class="flip-en">{{ currentWord.word }}</div>
+          <div class="flip-phonetic" v-if="currentWord.phonetic">/{{ currentWord.phonetic }}/</div>
+          <div class="flip-hint" v-if="mode === 'blank'">本轮剩余 {{ queue.length }} 项</div>
+          <div class="flip-hint" v-else>本轮剩余 {{ queue.length }} 项</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 音标+发音按钮 -->
+    <div class="pron-row">
+      <button class="pron-btn" @click="speakCurrent" title="🔊 播放发音">🔊</button>
+      <span class="pron-ipa" v-if="currentWord.phonetic">/{{ currentWord.phonetic }}/</span>
+      <span v-else class="pron-ipa" style="color:#d1d5db">音标加载中...</span>
+    </div>
+
+    <!-- 输入区域 -->
+    <div>
+      <!-- 完整拼写 -->
+      <input v-if="mode === 'full'"
+             ref="fullInput"
+             class="answer-input"
+             :class="{ correct: answerState === 'correct', wrong: answerState === 'wrong', shake: shakeFlag }"
+             v-model="userAnswer"
+             placeholder="输入英文单词"
+             @keyup.enter="checkAnswer"
+             :readonly="showAnswer"
+             autocomplete="off" autocapitalize="off" spellcheck="false" />
+
+      <!-- 填空 -->
+      <div v-if="mode === 'blank'" class="blank-wrap">
+        <template v-for="(ch, idx) in blankLetters" :key="idx">
+          <span v-if="ch.fixed">{{ ch.letter }}</span>
+          <input v-else
+                 class="blank-input"
+                 :class="{ correct: blankStates[idx] === 'correct', wrong: blankStates[idx] === 'wrong' }"
+                 maxlength="1"
+                 :value="userBlanks[idx] || ''"
+                 @input="onBlankInput($event, idx)"
+                 @keydown.enter.prevent="onBlankKeydown($event, idx)"
+                 :readonly="showAnswer"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" />
+        </template>
+      </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="quiz-controls">
+      <button class="btn btn-secondary" @click="flipCard">🃏 翻转</button>
+      <button class="btn btn-primary" v-if="!showAnswer" @click="checkAnswer">✅ 确认</button>
+      <button class="btn btn-primary" v-else @click="manualNext">下一个 →</button>
+    </div>
+
+    <!-- 进度点 -->
+    <div class="nav-dots">
+      <span v-for="(r, i) in results" :key="i"
+            :class="{ active: i === currentIndex, done: r === 'correct', wrong: r === 'wrong' }"></span>
+    </div>
+
+    <button class="link-btn" @click="exitQuiz" style="margin-top:12px; width:100%;">← 返回单词列表</button>
+  </div>
+
+  <!-- 步骤 3: 结果 -->
+  <div class="card-panel" v-if="step === 'result'">
+    <div class="result-score">
+      <div class="result-circle">
+        <div>
+          <div class="score-num">{{ uniqueCorrectCount }}</div>
+          <div class="score-total">/ {{ words.length }}</div>
+        </div>
+      </div>
+      <div class="result-msg">{{ resultMsg }}</div>
+      <div style="font-size:13px; color:#6b7280; margin-top: 8px;">
+        队列共 {{ results.length }} 次答题 · 唯一单词 {{ words.length }} 个
+      </div>
+    </div>
+
+    <div class="result-detail">
+      <div v-for="(w, i) in words" :key="w.word + '-' + i"
+           class="result-item" :class="{ wrong: perWordFinal[w.word] === 'wrong' }">
+        <span class="icon">{{ perWordFinal[w.word] === 'correct' ? '✅' : '❌' }}</span>
+        <span class="en">{{ w.word }}</span>
+        <span class="answer">{{ w.zh }}</span>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-secondary" @click="restartQuiz">🔁 再练一轮</button>
+      <button class="btn btn-primary" @click="backToUpload">📷 返回列表</button>
+    </div>
+  </div>
+
+  <!-- 手动添加弹窗 -->
+  <div class="modal-overlay" v-if="showManual" @click.self="showManual = false">
+    <div class="modal">
+      <h3>手动添加单词</h3>
+      <input v-model="manualEn" placeholder="英文单词 (如 apple)" />
+      <input v-model="manualZh" placeholder="中文意思 (如 苹果)" />
+      <div class="btn-row">
+        <button class="btn btn-secondary" @click="showManual = false">取消</button>
+        <button class="btn btn-primary" @click="confirmManual">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" v-if="toast">{{ toast }}</div>
+</div>
+<script>
+const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
+
+// ========== 本地存储 ==========
+const LS_KEYS = { WORDS: 'yypx_words', ERRORS: 'yypx_errors' };
+const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch(e) { return null; } };
+const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
+
+// ========== Tesseract.js 本地 OCR ==========
+// 浏览器端运行，零 CORS，零 key，零后端依赖
+// 首次使用会自动下载 chi_sim+eng 语言包 (~40MB)，后续会被浏览器缓存
+let _tesseractWorker = null;
+
+async function getTesseractWorker(onProgress) {
+  if (_tesseractWorker) return _tesseractWorker;
+  const { createWorker } = Tesseract;
+  const worker = await createWorker(['chi_sim', 'eng'], 1, {
+    logger: m => {
+      if (typeof onProgress === 'function') onProgress(m);
+    }
+  });
+  _tesseractWorker = worker;
+  return worker;
+}
+
+async function recognizeLocal(file, onProgress) {
+  const worker = await getTesseractWorker(onProgress);
+  const { data } = await worker.recognize(file);
+  return data.text || '';
+}
+
+// ========== 单词表解析 ==========
+// 课本单词表常见格式（每行一个）:
+//   apple 苹果           → English + Chinese
+//   look for 寻找        → 短语（空格分隔）
+//   take care of 照顾
+//   1. apple 苹果
+//   apple /ˈæpl/ 苹果    → 带音标
+// 解析策略：按中英边界切分，保留完整英文短语
+function parseWordList(text) {
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const pairs = [];
+  const seen = new Set();
+
+  for (let line of lines) {
+    // 去掉开头序号（1.  1、  1)  1]  →   等）
+    line = line.replace(/^\s*\d+[\.\、\)\]\s→\-]+/, '');
+    line = line.trim();
+    if (!line) continue;
+
+    // 去掉音标格式 /xxx/ 和 [...] 和 (xxx)
+    let cleaned = line
+      .replace(/\/[^\/\n]{1,30}\//g, ' ')
+      .replace(/\[[^\]\n]{1,30}\]/g, ' ')
+      .replace(/\([^)\n]{1,30}\)/g, ' ');
+
+    // 找到第一个中文字符的位置
+    const firstChinese = cleaned.search(/[\u4e00-\u9fa5]/);
+    let wordPart, zhPart;
+
+    if (firstChinese >= 0) {
+      // 有中文：英文在前，中文在后
+      wordPart = cleaned.slice(0, firstChinese).trim();
+      zhPart = cleaned.slice(firstChinese).trim();
+    } else {
+      // 无中文：整行都当英文（可能是排版异常，让用户后续编辑）
+      wordPart = cleaned.trim();
+      zhPart = '';
+    }
+
+    // 清理英文部分：只保留字母、空格、连字符、撇号
+    let word = wordPart
+      .replace(/[^a-zA-Z\s\-']/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+    if (!word || word.length < 2) continue;
+
+    // 清理中文部分
+    let zh = zhPart
+      .replace(/[^一-龥\s，。！？、：；]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // 去重
+    if (seen.has(word)) continue;
+    seen.add(word);
+
+    pairs.push({ word, zh, phonetic: '', audio: '' });
+  }
+  return pairs;
+}
+
+// ========== 音标+发音（有道词典 · 大陆可访问） ==========
+const phoneticCache = new Map();
+
+// 有道 jsonapi 返回结构：
+//   simple.word[0].usphone / ukphone  → 音标
+//   simple.word[0].usspeech / ukspeech → "apple&type=2"（相对路径，需拼接 dictvoice 域名）
+// 注意：jsonapi 在浏览器可能被 CORS 拦，但 dictvoice 播放不需要 CORS（Audio 标签）
+async function fetchPhonetic(word, timeoutMs = 5000) {
+  if (phoneticCache.has(word)) return phoneticCache.get(word);
+  // 硬编码兜底：有道 dictvoice 对任何单词/短语都能生成发音
+  const dictvoiceAudio = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=2`;
+  let phonetic = '';
+  let audio = dictvoiceAudio; // 默认兜底
+
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const resp = await fetch(`https://dict.youdao.com/jsonapi?q=${encodeURIComponent(word)}&jsonversion=2`, {
+      signal: ctrl.signal
+    });
+    clearTimeout(timer);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+
+    // 提取音标（美音优先）
+    const firstWord = data?.simple?.word?.[0];
+    if (firstWord) {
+      phonetic = cleanIPA(firstWord.usphone || firstWord.ukphone || '');
+      // 如果 jsonapi 也返回了音频 URL，优先用它（通常和 dictvoice 一样）
+      const speech = firstWord.usspeech || firstWord.ukspeech || '';
+      if (speech && /^https?:/.test(speech)) audio = speech;
+    }
+  } catch (e) {
+    // fetch 失败（CORS/超时/网络）— 没关系，音标留空，dictvoice 兜底发音
+  }
+
+  const result = { phonetic, audio };
+  phoneticCache.set(word, result);
+  return result;
+}
+
+// 清理 IPA：去除首尾方括号、去掉 // 包裹
+function cleanIPA(s) {
+  if (!s) return '';
+  return s.replace(/^\/*/, '').replace(/\/*$/, '').replace(/^\[|\]$/g, '').trim();
+}
+
+// ========== 发音播放 ==========
+// 返回 Promise<boolean>：只有真正播放成功才返回 true，失败/超时返回 false 让调用方 fallback
+function playAudioUrl(url) {
+  return new Promise(resolve => {
+    if (!url) { resolve(false); return; }
+    const a = new Audio(url);
+    let settled = false;
+    const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+    a.oncanplaythrough = () => { a.play().then(() => done(true)).catch(() => done(false)); };
+    a.onerror = () => done(false);
+    // 3s 超时还没 canplaythrough → 算失败
+    setTimeout(() => done(false), 3000);
+    try { a.load(); } catch(e) { done(false); }
+  });
+}
+
+function speakByTTS(text) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US';
+    u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+  } catch(e) {}
+}
+
+// ========== 洗牌 ==========
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ========== Vue 应用 ==========
+createApp({
+  setup() {
+    // ===== 状态 =====
+    const step = ref('upload');
+    const mode = ref('blank'); // blank 在前
+    const words = ref([]);     // [{ word, zh, phonetic, audio }]
+    const errors = ref([]);    // [{ word, zh, count }] 错题本
+    // 防误持久化：practiceErrors 临时替换 words，此时跳过持久化
+    const suppressSave = ref(false);
+
+    // 上传
+    const previewUrl = ref('');
+    const fileObj = ref(null);   // Blob（可能是压缩后的）
+    const fileMeta = ref({ name: '', type: '' });  // 保留原始文件名/类型
+    const ocrLoading = ref(false);
+    const ocrProgress = ref(0);
+    const ocrStatus = ref('');
+
+    // 弹窗
+    const showManual = ref(false);
+    const manualEn = ref('');
+    const manualZh = ref('');
+
+    // Toast
+    const toast = ref('');
+
+    // 练习状态
+    const queue = ref([]);             // 当前待答单词 index 列表（words 下标）
+    const results = ref([]);           // 与 queue 等长：'correct'|'wrong'|''（每次答题的单项结果）
+    // 唯一单词维度的最终状态（用于结果页、正确数统计）
+    const perWordFinal = ref({});      // { word: 'correct' | 'wrong' }  最后一次状态
+    const currentIndex = ref(0);       // queue 中的当前位置
+    const userAnswer = ref('');
+    const showAnswer = ref(false);
+    const autoAdvancing = ref(false);
+    const shakeFlag = ref(false);
+
+    // 填空
+    const blankLetters = ref([]);      // [{ letter, fixed }]
+    const userBlanks = ref([]);
+    const blankStates = ref([]);
+
+    // 填空模式计数：每个单词累计正确次数
+    const blankCorrectCount = ref({}); // { word: 已正确次数 }
+
+    const fullInput = ref(null);
+
+    // ===== 计算属性 =====
+    const currentWord = computed(() => {
+      const qi = queue.value[currentIndex.value];
+      return (qi !== undefined && qi >= 0) ? words.value[qi] : { word: '', zh: '', phonetic: '', audio: '' };
+    });
+
+    const currentWordStr = computed(() => currentWord.value.word.toLowerCase());
+
+    const answerState = computed(() => {
+      const qi = results.value[currentIndex.value];
+      return qi || '';
+    });
+
+    const progress = computed(() => {
+      let correct = 0, wrong = 0;
+      for (const r of results.value) {
+        if (r === 'correct') correct++;
+        else if (r === 'wrong') wrong++;
+      }
+      return { correct, wrong };
+    });
+
+    const correctCount = computed(() => progress.value.correct);
+
+    // 唯一单词维度：最终状态为 correct 的数量（结果页展示用）
+    const uniqueCorrectCount = computed(() => {
+      let c = 0;
+      for (const w of words.value) {
+        if (perWordFinal.value[w.word] === 'correct') c++;
+      }
+      return c;
+    });
+
+    const resultMsg = computed(() => {
+      const total = words.value.length || 1;
+      const rate = uniqueCorrectCount.value / total;
+      if (rate >= 0.9) return '🎉 太棒了！你是单词大师！';
+      if (rate >= 0.7) return '👏 不错哦，继续加油！';
+      if (rate >= 0.5) return '💪 还差一点，再练一次吧！';
+      return '📖 别灰心，多练习就会进步！';
+    });
+
+    // ===== 持久化 =====
+    function saveToStorage() {
+      if (!suppressSave.value) saveJSON(LS_KEYS.WORDS, words.value);
+      saveJSON(LS_KEYS.ERRORS, errors.value);
+    }
+
+    // ===== Toast =====
+    const showToast = (msg, ms = 1800) => {
+      toast.value = msg;
+      setTimeout(() => toast.value = '', ms);
+    };
+
+    // ===== 文件 =====
+    const triggerUpload = () => document.getElementById('fileInput').click();
+
+    const handleFile = (e) => {
+      const f = e.target.files[0];
+      if (!f) return;
+      fileMeta.value = { name: f.name || 'image.jpg', type: f.type || 'image/jpeg' };
+      // 压缩图片（Tesseract.js 在移动端上 1280px 识别速度更快）
+      compressImage(f, 1280, 0.9).then(blob => {
+        fileObj.value = new Blob([blob], { type: fileMeta.value.type });
+        const reader = new FileReader();
+        reader.onload = evt => { previewUrl.value = evt.target.result; };
+        reader.readAsDataURL(fileObj.value);
+      });
+    };
+
+    const removeImage = () => {
+      previewUrl.value = ''; fileObj.value = null;
+      fileMeta.value = { name: '', type: '' };
+      document.getElementById('fileInput').value = '';
+    };
+
+    // 图片压缩（前端）
+    function compressImage(file, maxW, quality) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const w = Math.min(maxW, img.width);
+          const ratio = w / img.width;
+          const h = img.height * ratio;
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(blob => resolve(blob || file), file.type || 'image/jpeg', quality);
+        };
+        img.onerror = () => resolve(file);
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // ===== OCR =====
+    const startOcr = async () => {
+      if (!fileObj.value) return;
+      ocrLoading.value = true;
+      ocrProgress.value = 2;
+      ocrStatus.value = '准备本地识别引擎';
+      try {
+        // Tesseract.js logger → 映射到进度/状态
+        const onLog = m => {
+          if (typeof m.progress === 'number') {
+            // download / load language / recognize
+            let base = 0, span = 0;
+            if (m.status.includes('initializing') || m.status.includes('download')) {
+              base = 5; span = 30;
+              if (m.status.includes('download')) ocrStatus.value = '首次下载语言包，请稍等';
+              else ocrStatus.value = '初始化识别引擎';
+            } else if (m.status.includes('loading tesseract') || m.status.includes('loading language')) {
+              base = 35; span = 15;
+              ocrStatus.value = '加载中英语言包';
+            } else if (m.status.includes('recognizing')) {
+              base = 50; span = 40;
+              ocrStatus.value = '本地识别文字中';
+            } else {
+              base = 2; span = 88;
+              ocrStatus.value = '处理中';
+            }
+            ocrProgress.value = Math.round(base + m.progress * span);
+          } else if (m.status) {
+            const s = String(m.status).toLowerCase();
+            if (s.includes('download')) ocrStatus.value = '下载语言包中';
+            else if (s.includes('initialize')) ocrStatus.value = '初始化';
+          }
+        };
+        const text = await recognizeLocal(fileObj.value, onLog);
+        ocrStatus.value = '解析单词';
+        ocrProgress.value = 92;
+        const list = parseWordList(text);
+        if (list.length === 0) {
+          showToast('未识别到单词，请换一张清晰、光线充足的图片');
+          ocrLoading.value = false;
+          return;
+        }
+        words.value = list;
+        // 并行批量拉音标（每批 5 个），带进度
+        ocrStatus.value = '加载音标和发音';
+        ocrProgress.value = 90;
+        const BATCH = 5;
+        const total = words.value.length;
+        let done = 0;
+        for (let b = 0; b < total; b += BATCH) {
+          const slice = words.value.slice(b, b + BATCH);
+          const results = await Promise.all(slice.map(w => fetchPhonetic(w.word)));
+          for (let k = 0; k < results.length; k++) {
+            const idx = b + k;
+            words.value[idx] = { ...words.value[idx], phonetic: results[k].phonetic, audio: results[k].audio };
+          }
+          done += results.length;
+          ocrProgress.value = 90 + Math.round((done / total) * 8);
+        }
+        saveToStorage();
+        ocrProgress.value = 100;
+        ocrStatus.value = '识别完成';
+        showToast(`识别到 ${words.value.length} 个单词`);
+      } catch (err) {
+        console.error(err);
+        showToast('识别失败：' + (err.message || '网络错误'));
+      } finally {
+        setTimeout(() => { ocrLoading.value = false; ocrProgress.value = 0; ocrStatus.value = ''; }, 400);
+      }
+    };
+
+    // ===== 单词列表 =====
+    const removeWord = (i) => {
+      words.value.splice(i, 1);
+      saveToStorage();
+    };
+    const addManual = () => { showManual.value = true; };
+    const confirmManual = async () => {
+      const en = manualEn.value.trim().toLowerCase();
+      const zh = manualZh.value.trim();
+      if (!en) { showToast('请输入英文单词'); return; }
+      if (!zh) { showToast('请输入中文意思'); return; }
+      const info = await fetchPhonetic(en);
+      words.value.push({ word: en, zh, phonetic: info.phonetic, audio: info.audio });
+      saveToStorage();
+      showManual.value = false;
+      manualEn.value = ''; manualZh.value = '';
+      showToast('已添加');
+    };
+    const resetAll = () => {
+      words.value = [];
+      saveToStorage();
+      removeImage();
+      showToast('已清空');
+    };
+
+    // ===== 错题本 =====
+    // 记录原始 words，错题练习时临时替换；退出时恢复
+    let _originWordsForErrorPractice = null;
+
+    const practiceErrors = () => {
+      if (errors.value.length === 0) { showToast('暂无错题'); return; }
+      // 备份原表，且防止持久化
+      _originWordsForErrorPractice = words.value.slice();
+      suppressSave.value = true;
+      words.value = errors.value.map(e => ({ word: e.word, zh: e.zh, phonetic: '', audio: '' }));
+      // 不要 saveToStorage（会被抑制）
+      goQuiz('error');
+    };
+
+    function restoreFromErrorPractice() {
+      if (_originWordsForErrorPractice) {
+        suppressSave.value = false;
+        words.value = _originWordsForErrorPractice;
+        saveToStorage();
+        _originWordsForErrorPractice = null;
+      }
+    }
+
+    function addError(wordObj) {
+      const idx = errors.value.findIndex(e => e.word === wordObj.word);
+      if (idx >= 0) {
+        errors.value[idx].count = (errors.value[idx].count || 1) + 1;
+      } else {
+        errors.value.push({ word: wordObj.word, zh: wordObj.zh, count: 1 });
+      }
+      saveToStorage();
+    }
+    function removeError(word) {
+      const idx = errors.value.findIndex(e => e.word === word);
+      if (idx >= 0) errors.value.splice(idx, 1);
+      saveToStorage();
+    }
+
+    let pendingOnFinish = null;
+    let quizSource = 'normal'; // 'normal' | 'error'
+
+    // ===== 练习流程 =====
+    const goQuiz = (source = 'normal') => {
+      if (words.value.length === 0) { showToast('请先添加单词'); return; }
+      quizSource = source;
+      buildQueue();
+      currentIndex.value = 0;
+      userAnswer.value = '';
+      showAnswer.value = false;
+      autoAdvancing.value = false;
+      blankCorrectCount.value = {};
+      blankAttemptCount.value = {};
+      results.value = new Array(queue.value.length).fill('');
+      perWordFinal.value = {};
+      for (const w of words.value) perWordFinal.value[w.word] = '';
+      step.value = 'quiz';
+      nextTick(() => prepareCard());
+    };
+
+    function buildQueue() {
+      // 根据 mode 生成队列
+      if (mode.value === 'full') {
+        // 完整拼写：每个单词随机出现 2 次
+        const doubles = [];
+        for (let i = 0; i < words.value.length; i++) {
+          doubles.push(i, i);
+        }
+        queue.value = shuffle(doubles);
+      } else {
+        // 填空模式：随机顺序，每人初始 1 次，通过（正确 2 次）后不再进入；未通过的循环回来
+        // 先用 words 下标随机排列，遇到答完正确次数达到 2 就跳过，否则循环到全部通过
+        queue.value = shuffle(words.value.map((_, i) => i));
+      }
+    }
+
+    const switchMode = (m) => {
+      mode.value = m;
+      buildQueue();
+      currentIndex.value = 0;
+      userAnswer.value = '';
+      showAnswer.value = false;
+      blankCorrectCount.value = {};
+      blankAttemptCount.value = {};
+      results.value = new Array(queue.value.length).fill('');
+      perWordFinal.value = {};
+      for (const w of words.value) perWordFinal.value[w.word] = '';
+      nextTick(() => prepareCard());
+      showToast(m === 'blank' ? '已切换填空模式' : '已切换完整拼写模式');
+    };
+
+    function prepareCard() {
+      userAnswer.value = '';
+      showAnswer.value = false;
+      // 填空数据
+      nextTick(() => {
+        computeBlanks();
+        // 根据模式聚焦正确输入框
+        setTimeout(() => {
+          if (mode.value === 'blank') {
+            const firstBlank = document.querySelector('.blank-input:not([disabled])');
+            firstBlank?.focus();
+          } else {
+            fullInput.value?.focus();
+          }
+          speakCurrent();
+        }, 200);
+      });
+    }
+
+    function computeBlanks() {
+      const w = currentWordStr.value;
+      if (!w) { blankLetters.value = []; userBlanks.value = []; blankStates.value = []; return; }
+      const len = w.length;
+      let hideCount;
+      if (len <= 3) hideCount = 1;
+      else if (len <= 5) hideCount = Math.floor(len * 0.35);
+      else hideCount = Math.floor(len * 0.4);
+
+      const candidates = [];
+      for (let i = 1; i < len - 1; i++) candidates.push(i);
+      for (let i = candidates.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+      }
+      const hidden = new Set(candidates.slice(0, Math.min(hideCount, candidates.length)));
+      const arr = [];
+      for (let i = 0; i < len; i++) arr.push({ letter: w[i], fixed: !hidden.has(i) });
+      blankLetters.value = arr;
+      userBlanks.value = arr.map(ch => ch.fixed ? ch.letter : '');
+      blankStates.value = arr.map(() => '');
+    }
+
+    const exitQuiz = () => {
+      step.value = 'upload';
+      restoreFromErrorPractice();
+    };
+
+    const flipCard = () => { showAnswer.value = !showAnswer.value; };
+
+    const speakCurrent = async () => {
+      const w = currentWord.value;
+      if (!w.word) return;
+      // 优先级：已有音频 URL → 有道 dictvoice 硬编码兜底（可用任意短语） → TTS
+      const dictvoice = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(w.word)}&type=2`;
+      const audioUrls = [];
+      if (w.audio) audioUrls.push(w.audio);
+      audioUrls.push(dictvoice);
+      for (const url of audioUrls) {
+        const ok = await playAudioUrl(url);
+        if (ok) return;
+      }
+      speakByTTS(w.word);
+    };
+
+    // ========== 答案校验 ==========
+    const checkAnswer = () => {
+      if (autoAdvancing.value) return; // 900ms 自动前进窗口内防重复提交
+      let correct = false;
+      const target = currentWordStr.value;
+
+      if (mode.value === 'full') {
+        const ans = (userAnswer.value || '').trim().toLowerCase();
+        if (!ans) { showToast('请输入答案'); return; }
+        correct = ans === target;
+        if (!correct) {
+          shakeFlag.value = true;
+          setTimeout(() => shakeFlag.value = false, 500);
+        }
+      } else {
+        // 填空
+        let built = '';
+        for (let i = 0; i < blankLetters.value.length; i++) {
+          if (blankLetters.value[i].fixed) built += blankLetters.value[i].letter;
+          else built += (userBlanks.value[i] || '').toLowerCase();
+        }
+        correct = built === target;
+        for (let i = 0; i < blankLetters.value.length; i++) {
+          if (blankLetters.value[i].fixed) continue;
+          const got = (userBlanks.value[i] || '').toLowerCase();
+          const exp = blankLetters.value[i].letter;
+          blankStates.value[i] = got === exp ? 'correct' : 'wrong';
+        }
+      }
+
+      results.value[currentIndex.value] = correct ? 'correct' : 'wrong';
+      // 维护每个单词最终状态（最后一次答题覆盖）
+      perWordFinal.value[target] = correct ? 'correct' : 'wrong';
+
+      if (mode.value === 'blank') {
+        if (correct) {
+          blankCorrectCount.value[target] = (blankCorrectCount.value[target] || 0) + 1;
+        }
+      }
+
+      // 错题记录
+      if (!correct) addError(currentWord.value);
+      else removeError(target);
+
+      showAnswer.value = true;
+      showToast(correct ? '✅ 正确！' : `❌ 正确答案：${target}`);
+
+      // 自动播放单词发音
+      speakCurrent();
+
+      // 正确则自动进入下一个
+      if (correct) {
+        autoAdvancing.value = true;
+        setTimeout(() => {
+          autoAdvancing.value = false;
+          advance();
+        }, 900);
+      }
+    };
+
+    const manualNext = () => {
+      advance();
+    };
+
+    // 填空模式：每词最多 MAX_BLANK_RETRY 次重试，防止无限循环
+    const MAX_BLANK_RETRY = 5;
+    // 记录每个单词被加入 queue 的总次数
+    const blankAttemptCount = ref({}); // { word: 已尝试次数 }
+
+    function advance() {
+      // 填空模式：检查是否还需要追加未达标单词
+      if (mode.value === 'blank') {
+        const currentQi = queue.value[currentIndex.value];
+        const currentWordObj = words.value[currentQi];
+        const wordKey = currentWordObj.word;
+        const attempted = (blankAttemptCount.value[wordKey] || 0) + 1;
+        blankAttemptCount.value[wordKey] = attempted;
+
+        const correctNeed = 2;
+        const correctHave = blankCorrectCount.value[wordKey] || 0;
+        if (correctHave < correctNeed && attempted < MAX_BLANK_RETRY) {
+          queue.value.push(currentQi);
+          results.value.push('');
+        } else if (correctHave < correctNeed && attempted >= MAX_BLANK_RETRY) {
+          // 达上限，强制记为 wrong（若尚未记）
+          if ((perWordFinal.value[wordKey] || '') !== 'correct') {
+            perWordFinal.value[wordKey] = 'wrong';
+            // 确保 results 数组在该单词最后一次位置也有记录
+            const lastIdx = queue.value.length - 1;
+            if (results.value[lastIdx] !== 'correct') results.value[lastIdx] = 'wrong';
+          }
+        }
+      }
+
+      currentIndex.value++;
+
+      if (currentIndex.value >= queue.value.length) {
+        // 结束
+        finishQuiz();
+        return;
+      }
+
+      prepareCard();
+    }
+
+    function finishQuiz() {
+      step.value = 'result';
+      // 错题练习结束后，等用户点返回再恢复；这里只标记
+      // 保持 suppressSave=true，直到用户回到 upload 才恢复
+      // 不在这里自动 restore，否则结果页用的 words 会变
+    }
+
+    // ========== 填空输入 ==========
+    const onBlankInput = (e, idx) => {
+      const v = e.target.value.toLowerCase();
+      userBlanks.value[idx] = v;
+      if (v) {
+        // 自动跳到下一个可填空
+        const blankInputs = [];
+        for (let i = 0; i < blankLetters.value.length; i++) {
+          if (!blankLetters.value[i].fixed) blankInputs.push(i);
+        }
+        const myPos = blankInputs.indexOf(idx);
+        if (myPos >= 0 && myPos < blankInputs.length - 1) {
+          const el = document.querySelectorAll('.blank-input')[myPos + 1];
+          if (el) el.focus();
+        }
+      }
+    };
+    // 填空模式下 Enter 提交
+    const onBlankKeydown = (e, idx) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        checkAnswer();
+      }
+    };
+
+    // ========== 结果页操作 ==========
+    const restartQuiz = () => {
+      goQuiz(quizSource); // 保持当前练习来源（错题/正常）
+    };
+    const backToUpload = () => {
+      step.value = 'upload';
+      restoreFromErrorPractice();
+    };
+
+    // ========== 首次加载 ==========
+    onMounted(() => {
+      const savedWords = loadJSON(LS_KEYS.WORDS);
+      const savedErrors = loadJSON(LS_KEYS.ERRORS);
+      if (savedWords && savedWords.length > 0) words.value = savedWords;
+      if (savedErrors && savedErrors.length > 0) errors.value = savedErrors;
+      // 后台静默补齐缺失的音标/发音（不阻塞用户操作）
+      refillMissingPhonetics();
+    });
+
+    async function refillMissingPhonetics() {
+      const missing = words.value.filter(w => !w.phonetic || !w.audio);
+      if (missing.length === 0) return;
+      const BATCH = 5;
+      for (let b = 0; b < missing.length; b += BATCH) {
+        const slice = missing.slice(b, b + BATCH);
+        const results = await Promise.all(slice.map(w => fetchPhonetic(w.word)));
+        for (let k = 0; k < results.length; k++) {
+          const m = missing[b + k];
+          const idx = words.value.findIndex(x => x.word === m.word);
+          if (idx >= 0) {
+            words.value[idx] = { ...words.value[idx], phonetic: results[k].phonetic, audio: results[k].audio };
+          }
+        }
+      }
+      saveToStorage();
+    }
+
+    // watch: words 变化 → 存
+    watch(words, () => saveToStorage(), { deep: true });
+
+    return {
+      // state
+      step, mode, words, errors,
+      previewUrl, ocrLoading, ocrProgress, ocrStatus, fileObj, fileMeta,
+      showManual, manualEn, manualZh, toast,
+      queue, results, perWordFinal, currentIndex, userAnswer, showAnswer, autoAdvancing, shakeFlag,
+      blankLetters, userBlanks, blankStates,
+      fullInput,
+      // computed
+      currentWord, answerState, progress, correctCount, uniqueCorrectCount, resultMsg,
+      // methods
+      triggerUpload, handleFile, removeImage, startOcr,
+      removeWord, addManual, confirmManual, resetAll,
+      practiceErrors,
+      goQuiz, exitQuiz, flipCard, checkAnswer, manualNext,
+      switchMode, restartQuiz, backToUpload,
+      onBlankInput, onBlankKeydown, speakCurrent, saveToStorage
+    };
+  }
+}).mount('#app');
+</script>
+</body>
+</html>
