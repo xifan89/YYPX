@@ -2090,6 +2090,7 @@ createApp({
     function prepareCard() {
       userAnswer.value = '';
       showAnswer.value = false;
+      autoAdvancing.value = false;
       // 填空数据
       nextTick(() => {
         computeBlanks();
@@ -2399,19 +2400,28 @@ createApp({
     // 完整拼写模式 keydown 拦截：showAnswer 期间阻止输入
     const onFullKeydown = (e) => {
       if (showAnswer.value) { e.preventDefault(); return; }
+      // Enter 必须 preventDefault — iOS 上 Enter 默认行为是"完成"并收起键盘！
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        checkAnswer();
+      }
     };
 
     // blur 守卫：quiz 模式下只要输入框失去焦点，立即重新聚焦，确保键盘一直弹起
-    // 包括显示答案的 900ms 窗口（用户明确要求键盘全程保持）
     const keepFocus = () => {
       if (step.value !== 'quiz') return;
-      // showAnswer 和 autoAdvancing 期间也保持键盘弹起！
       requestAnimationFrame(() => {
         if (mode.value === 'blank') {
+          const ae = document.activeElement;
+          // 如果当前焦点已经在某个 blank-input 上 → 不要抢（onBlankInput 刚跳完下一个，这是正常的）
+          if (ae && ae.classList && ae.classList.contains('blank-input')) return;
+          // 真正失焦了 → 拉回第一个空
           const firstBlank = document.querySelector('.blank-input');
-          if (firstBlank && document.activeElement !== firstBlank) firstBlank.focus();
+          if (firstBlank) firstBlank.focus();
         } else {
-          if (fullInput.value && document.activeElement !== fullInput.value) fullInput.value.focus();
+          const ae = document.activeElement;
+          if (ae === fullInput.value) return; // 本来就对
+          if (fullInput.value) fullInput.value.focus();
         }
       });
     };
