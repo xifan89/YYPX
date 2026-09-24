@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
@@ -894,8 +894,9 @@
              v-model="userAnswer"
              placeholder="输入英文单词"
              @keyup.enter="checkAnswer"
-             :readonly="showAnswer"
-             autocomplete="off" autocapitalize="off" spellcheck="false" />
+             @keydown="onFullKeydown"
+             @blur="keepFocus"
+             autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="text" />
 
       <!-- 填空 -->
       <div v-if="mode === 'blank'" class="blank-wrap">
@@ -908,17 +909,17 @@
                  :value="userBlanks[idx] || ''"
                  @input="onBlankInput($event, idx)"
                  @keydown="onBlankKeydown($event, idx)"
-                 :readonly="showAnswer"
-                 autocomplete="off" autocapitalize="off" spellcheck="false" />
+                 @blur="keepFocus"
+                 autocomplete="off" autocapitalize="off" spellcheck="false" inputmode="text" />
         </template>
       </div>
     </div>
 
     <!-- 控制按钮 -->
     <div class="quiz-controls">
-      <button class="btn btn-secondary" @click="flipCard">🃏 翻转</button>
-      <button class="btn btn-primary" v-if="!showAnswer" @click="checkAnswer">✅ 确认</button>
-      <button class="btn btn-primary" v-else @click="manualNext">下一个 →</button>
+      <button class="btn btn-secondary" @mousedown.prevent @click="flipCard">🃏 翻转</button>
+      <button class="btn btn-primary" v-if="!showAnswer" @mousedown.prevent @click="checkAnswer">✅ 确认</button>
+      <button class="btn btn-primary" v-else @mousedown.prevent @click="manualNext">下一个 →</button>
     </div>
 
     <!-- 进度点 -->
@@ -927,7 +928,7 @@
             :class="{ active: i === currentIndex, done: r === 'correct', wrong: r === 'wrong' }"></span>
     </div>
 
-    <button class="link-btn" @click="exitQuiz" style="margin-top:12px; width:100%;">← 返回单词列表</button>
+    <button class="link-btn" @mousedown.prevent @click="exitQuiz" style="margin-top:12px; width:100%;">← 返回单词列表</button>
   </div>
 
   <!-- 步骤 3: 结果 -->
@@ -1733,43 +1734,63 @@ createApp({
     // Toast
     const toast = ref('');
 
-    // 练习状态
-    const queue = ref([]);             // 当前待答单词 index 列表（words 下标）
-    const results = ref([]);           // 与 queue 等长：'correct'|'wrong'|''（每次答题的单项结果）
-    // 唯一单词维度的最终状态（用于结果页、正确数统计）
-    const perWordFinal = ref({});      // { word: 'correct' | 'wrong' }  最后一次状态
-    const currentIndex = ref(0);       // queue 中的当前位置
+    // 练习状态（公共）
     const userAnswer = ref('');
     const showAnswer = ref(false);
     const autoAdvancing = ref(false);
     const shakeFlag = ref(false);
 
-    // 填空
+    // 填空（当前显示用，prepareCard 时重算）
     const blankLetters = ref([]);      // [{ letter, fixed }]
     const userBlanks = ref([]);
     const blankStates = ref([]);
 
-    // 填空模式计数：每个单词累计正确次数
-    const blankCorrectCount = ref({}); // { word: 已正确次数 }
+    // ===== 按模式独立的练习状态（核心：切换模式不清空各自计数）=====
+    // blank 模式：queue 动态增长（正确2次或达重试上限才结束）
+    // full 模式：queue 固定为每个单词出现2次
+    const modeState = ref({
+      blank: {
+        queue: [], results: [], currentIndex: 0,
+        perWordFinal: {},
+        blankCorrectCount: {}, blankAttemptCount: {},
+        finished: false  // 是否已完成一轮（每个单词都正确2次或达上限）
+      },
+      full: {
+        queue: [], results: [], currentIndex: 0,
+        perWordFinal: {},
+        finished: false
+      }
+    });
+    // 便捷访问：当前模式的状态对象（直接改它的属性会自动触发 Vue 更新）
+    const curS = computed(() => modeState.value[mode.value]);
+
+    // ===== 模板兼容别名：让模板中 queue/results/currentIndex/perWordFinal 继续工作 =====
+    // 直接读 modeState.value[mode.value]，完全绕过 curS computed
+    const queue = computed(() => modeState.value[mode.value].queue);
+    const results = computed(() => modeState.value[mode.value].results);
+    const currentIndex = computed(() => modeState.value[mode.value].currentIndex);
+    const perWordFinal = computed(() => modeState.value[mode.value].perWordFinal);
 
     const fullInput = ref(null);
 
-    // ===== 计算属性 =====
+    // ===== 计算属性（直接读 modeState，不经过 curS 避免 computed 缓存问题）=====
     const currentWord = computed(() => {
-      const qi = queue.value[currentIndex.value];
+      const s = modeState.value[mode.value];
+      const qi = s.queue[s.currentIndex];
       return (qi !== undefined && qi >= 0) ? words.value[qi] : { word: '', zh: '', phonetic: '', audio: '' };
     });
 
     const currentWordStr = computed(() => currentWord.value.word.toLowerCase());
 
     const answerState = computed(() => {
-      const qi = results.value[currentIndex.value];
-      return qi || '';
+      const s = modeState.value[mode.value];
+      return s.results[s.currentIndex] || '';
     });
 
     const progress = computed(() => {
+      const s = modeState.value[mode.value];
       let correct = 0, wrong = 0;
-      for (const r of results.value) {
+      for (const r of s.results) {
         if (r === 'correct') correct++;
         else if (r === 'wrong') wrong++;
       }
@@ -1780,9 +1801,10 @@ createApp({
 
     // 唯一单词维度：最终状态为 correct 的数量（结果页展示用）
     const uniqueCorrectCount = computed(() => {
+      const pf = modeState.value[mode.value].perWordFinal;
       let c = 0;
       for (const w of words.value) {
-        if (perWordFinal.value[w.word] === 'correct') c++;
+        if (pf[w.word] === 'correct') c++;
       }
       return c;
     });
@@ -2005,47 +2027,62 @@ createApp({
     const goQuiz = (source = 'normal') => {
       if (words.value.length === 0) { showToast('请先添加单词'); return; }
       quizSource = source;
-      buildQueue();
-      currentIndex.value = 0;
+      // 重置当前模式的所有状态（开始新一轮），另一模式的状态不受影响
+      const s = modeState.value[mode.value];
+      buildQueue();  // 内部会初始化 queue + results
+      s.currentIndex = 0;
+      s.perWordFinal = {};
+      for (const w of words.value) s.perWordFinal[w.word] = '';
+      if (mode.value === 'blank') {
+        s.blankCorrectCount = {};
+        s.blankAttemptCount = {};
+      }
+      s.finished = false;
+      // 公共状态
       userAnswer.value = '';
       showAnswer.value = false;
       autoAdvancing.value = false;
-      blankCorrectCount.value = {};
-      blankAttemptCount.value = {};
-      results.value = new Array(queue.value.length).fill('');
-      perWordFinal.value = {};
-      for (const w of words.value) perWordFinal.value[w.word] = '';
       step.value = 'quiz';
       nextTick(() => prepareCard());
     };
 
     function buildQueue() {
-      // 根据 mode 生成队列
+      const s = modeState.value[mode.value];
       if (mode.value === 'full') {
         // 完整拼写：每个单词随机出现 2 次
         const doubles = [];
         for (let i = 0; i < words.value.length; i++) {
           doubles.push(i, i);
         }
-        queue.value = shuffle(doubles);
+        s.queue = shuffle(doubles);
       } else {
-        // 填空模式：随机顺序，每人初始 1 次，通过（正确 2 次）后不再进入；未通过的循环回来
-        // 先用 words 下标随机排列，遇到答完正确次数达到 2 就跳过，否则循环到全部通过
-        queue.value = shuffle(words.value.map((_, i) => i));
+        // 填空模式：随机顺序，每人初始 1 次，通过后不再进入
+        s.queue = shuffle(words.value.map((_, i) => i));
       }
+      s.results = new Array(s.queue.length).fill('');
     }
 
     const switchMode = (m) => {
+      // 直接操作 modeState.value[m]，绕过 curS computed 可能的缓存问题
       mode.value = m;
-      buildQueue();
-      currentIndex.value = 0;
+      const s = modeState.value[m];
+      // 只有当该模式从未初始化过 queue 时（首次进入），才自动初始化
+      if (!s.queue || s.queue.length === 0) {
+        // buildQueue 内部用 curS.value，需要确保 mode.value 已是目标值
+        buildQueue();
+        s.currentIndex = 0;
+        s.perWordFinal = {};
+        for (const w of words.value) s.perWordFinal[w.word] = '';
+        if (m === 'blank') {
+          s.blankCorrectCount = {};
+          s.blankAttemptCount = {};
+        }
+        s.finished = false;
+      }
+      // 重置公共 UI 状态
       userAnswer.value = '';
       showAnswer.value = false;
-      blankCorrectCount.value = {};
-      blankAttemptCount.value = {};
-      results.value = new Array(queue.value.length).fill('');
-      perWordFinal.value = {};
-      for (const w of words.value) perWordFinal.value[w.word] = '';
+      autoAdvancing.value = false;
       nextTick(() => prepareCard());
       showToast(m === 'blank' ? '已切换填空模式' : '已切换完整拼写模式');
     };
@@ -2056,16 +2093,17 @@ createApp({
       // 填空数据
       nextTick(() => {
         computeBlanks();
-        // 根据模式聚焦正确输入框
-        setTimeout(() => {
+        // 等一帧让新 DOM 完全挂载，然后立即 focus（延迟 0ms 不影响键盘保持）
+        requestAnimationFrame(() => {
           if (mode.value === 'blank') {
-            const firstBlank = document.querySelector('.blank-input:not([disabled])');
-            firstBlank?.focus();
+            const allBlanks = document.querySelectorAll('.blank-input');
+            if (allBlanks.length > 0) allBlanks[0].focus();
           } else {
             fullInput.value?.focus();
           }
-          speakCurrent();
-        }, 200);
+          // speak 在 focus 之后再播，避免某些浏览器音频抢占焦点
+          setTimeout(() => speakCurrent(), 50);
+        });
       });
     }
 
@@ -2151,13 +2189,14 @@ createApp({
         }
       }
 
-      results.value[currentIndex.value] = correct ? 'correct' : 'wrong';
+      const s = modeState.value[mode.value];
+      s.results[s.currentIndex] = correct ? 'correct' : 'wrong';
       // 维护每个单词最终状态（最后一次答题覆盖）
-      perWordFinal.value[target] = correct ? 'correct' : 'wrong';
+      s.perWordFinal[target] = correct ? 'correct' : 'wrong';
 
       if (mode.value === 'blank') {
         if (correct) {
-          blankCorrectCount.value[target] = (blankCorrectCount.value[target] || 0) + 1;
+          s.blankCorrectCount[target] = (s.blankCorrectCount[target] || 0) + 1;
         }
       }
 
@@ -2188,6 +2227,19 @@ createApp({
       lastQuizCorrect.value = correct;
 
       showAnswer.value = true;
+
+      // showAnswer 变 true 后，主动重新聚焦当前输入框，确保键盘保持弹起
+      nextTick(() => {
+        requestAnimationFrame(() => {
+          if (mode.value === 'blank') {
+            const anyBlank = document.querySelector('.blank-input');
+            if (anyBlank) anyBlank.focus();
+          } else {
+            fullInput.value?.focus();
+          }
+        });
+      });
+
       if (correct) {
         const parts = [`✅ 正确！`];
         parts.push(`🏆 +${gainedThisRound} 分`);
@@ -2214,37 +2266,36 @@ createApp({
 
     // 填空模式：每词最多 MAX_BLANK_RETRY 次重试，防止无限循环
     const MAX_BLANK_RETRY = 5;
-    // 记录每个单词被加入 queue 的总次数
-    const blankAttemptCount = ref({}); // { word: 已尝试次数 }
 
     function advance() {
+      const s = modeState.value[mode.value];
       // 填空模式：检查是否还需要追加未达标单词
       if (mode.value === 'blank') {
-        const currentQi = queue.value[currentIndex.value];
+        const currentQi = s.queue[s.currentIndex];
         const currentWordObj = words.value[currentQi];
         const wordKey = currentWordObj.word;
-        const attempted = (blankAttemptCount.value[wordKey] || 0) + 1;
-        blankAttemptCount.value[wordKey] = attempted;
+        const attempted = (s.blankAttemptCount[wordKey] || 0) + 1;
+        s.blankAttemptCount[wordKey] = attempted;
 
         const correctNeed = 2;
-        const correctHave = blankCorrectCount.value[wordKey] || 0;
+        const correctHave = s.blankCorrectCount[wordKey] || 0;
         if (correctHave < correctNeed && attempted < MAX_BLANK_RETRY) {
-          queue.value.push(currentQi);
-          results.value.push('');
+          s.queue.push(currentQi);
+          s.results.push('');
         } else if (correctHave < correctNeed && attempted >= MAX_BLANK_RETRY) {
           // 达上限，强制记为 wrong（若尚未记）
-          if ((perWordFinal.value[wordKey] || '') !== 'correct') {
-            perWordFinal.value[wordKey] = 'wrong';
+          if ((s.perWordFinal[wordKey] || '') !== 'correct') {
+            s.perWordFinal[wordKey] = 'wrong';
             // 确保 results 数组在该单词最后一次位置也有记录
-            const lastIdx = queue.value.length - 1;
-            if (results.value[lastIdx] !== 'correct') results.value[lastIdx] = 'wrong';
+            const lastIdx = s.queue.length - 1;
+            if (s.results[lastIdx] !== 'correct') s.results[lastIdx] = 'wrong';
           }
         }
       }
 
-      currentIndex.value++;
+      s.currentIndex++;
 
-      if (currentIndex.value >= queue.value.length) {
+      if (s.currentIndex >= s.queue.length) {
         // 结束
         finishQuiz();
         return;
@@ -2257,7 +2308,8 @@ createApp({
       // 完整拼写模式：所有单词都被至少回答过一次 → 奖励
       // 填空模式：每个单词都累计正确 2 次（或达重试上限） → 结束
       // 错题模式：全部答完即结束（不管对错） → 也给小奖励
-      const uniqueWordsAnswered = Object.keys(perWordFinal.value).length;
+      const s = modeState.value[mode.value];
+      const uniqueWordsAnswered = Object.keys(s.perWordFinal).length;
       const totalWords = words.value.length;
       const allDone = uniqueWordsAnswered >= totalWords && totalWords > 0;
       const isErrorMode = (quizSource === 'error');
@@ -2271,6 +2323,8 @@ createApp({
       // 重置 combo（一次练习结束）
       combo.value = 0;
       lastQuizCorrect.value = false;
+      // 标记当前模式已完成（切回该模式时会自动开新一轮）
+      s.finished = true;
 
       step.value = 'result';
     }
@@ -2301,6 +2355,8 @@ createApp({
     // 统一处理 Enter / Backspace / Delete
     // 全部 preventDefault，由我们自己完全控制行为
     const onBlankKeydown = (e, idx) => {
+      // showAnswer 期间拦截所有输入（不让用户在看答案时修改）
+      if (showAnswer.value) { e.preventDefault(); return; }
       const isBack = (e.key === 'Backspace' || e.key === 'Delete' || e.keyCode === 8 || e.keyCode === 46);
       const isEnter = (e.key === 'Enter' || e.keyCode === 13);
 
@@ -2338,6 +2394,26 @@ createApp({
           }, 0);
         }
       }
+    };
+
+    // 完整拼写模式 keydown 拦截：showAnswer 期间阻止输入
+    const onFullKeydown = (e) => {
+      if (showAnswer.value) { e.preventDefault(); return; }
+    };
+
+    // blur 守卫：quiz 模式下只要输入框失去焦点，立即重新聚焦，确保键盘一直弹起
+    // 包括显示答案的 900ms 窗口（用户明确要求键盘全程保持）
+    const keepFocus = () => {
+      if (step.value !== 'quiz') return;
+      // showAnswer 和 autoAdvancing 期间也保持键盘弹起！
+      requestAnimationFrame(() => {
+        if (mode.value === 'blank') {
+          const firstBlank = document.querySelector('.blank-input');
+          if (firstBlank && document.activeElement !== firstBlank) firstBlank.focus();
+        } else {
+          if (fullInput.value && document.activeElement !== fullInput.value) fullInput.value.focus();
+        }
+      });
     };
 
     // ========== 宠物系统 ==========
@@ -2569,7 +2645,7 @@ createApp({
       practiceErrors,
       goQuiz, exitQuiz, flipCard, checkAnswer, manualNext,
       switchMode, restartQuiz, backToUpload,
-      onBlankInput, onBlankKeydown, speakCurrent, saveToStorage,
+      onBlankInput, onBlankKeydown, onFullKeydown, keepFocus, speakCurrent, saveToStorage,
       // 积分
       addPoints,
       // 宠物
