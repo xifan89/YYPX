@@ -365,13 +365,421 @@
 
   /* 防止 iOS 输入框原生阴影 */
   input { -webkit-appearance: none; }
+
+  /* ========== 顶部积分栏 ========== */
+  .header-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .header-top h1 { margin: 0; font-size: 18px; line-height: 1.3; }
+  .points-chip {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border: 1px solid #fbbf24;
+    border-radius: 20px; padding: 4px 10px;
+    font-size: 13px; font-weight: 600; color: #92400e;
+    box-shadow: 0 2px 6px rgba(251, 191, 36, .3);
+    cursor: pointer;
+  }
+  .pts-icon { font-size: 16px; }
+  .pts-val { font-size: 16px; font-weight: 800; color: #b45309; }
+  .pts-label { font-size: 10px; opacity: .7; }
+
+  /* ========== 底部 Tab 导航 ========== */
+  .tab-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: #fff; display: flex; border-top: 1px solid #e5e7eb;
+    padding-bottom: env(safe-area-inset-bottom); z-index: 100;
+    box-shadow: 0 -2px 8px rgba(0,0,0,.04);
+  }
+  .tab-btn {
+    flex: 1; background: transparent; border: none; padding: 8px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    font-size: 11px; color: #9ca3af; cursor: pointer;
+    transition: color .15s;
+  }
+  .tab-btn.active { color: #6366f1; }
+  .tab-btn .tab-ico { font-size: 20px; }
+  /* 主内容给底部 tab 让位置 */
+  #app > .card-panel { padding-bottom: calc(16px + 60px + env(safe-area-inset-bottom)); }
+  /* quiz 页面没有 tab */
+  #app > .card-panel[style*="step === 'quiz'"] { padding-bottom: 16px; }
+
+  /* ========== 通用面板标题 ========== */
+  .panel-title {
+    font-size: 20px; margin: 0 0 16px; color: #1e293b; text-align: center;
+  }
+  .empty-tip {
+    text-align: center; color: #94a3b8; padding: 20px 0; font-size: 14px;
+  }
+
+  /* ========== 宠物家园 ========== */
+  .pet-adopt { text-align: center; padding: 20px 0; }
+  .pet-egg-big { font-size: 80px; margin: 20px 0; animation: floatEgg 2.5s ease-in-out infinite; }
+  @keyframes floatEgg {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
+  .pet-tip { color: #64748b; margin-bottom: 20px; line-height: 1.6; }
+
+  .pet-stage-bar {
+    display: flex; justify-content: space-between; gap: 6px;
+    background: #f1f5f9; border-radius: 16px; padding: 10px; margin-bottom: 8px;
+  }
+  .stage-dot {
+    flex: 1; text-align: center; font-size: 22px;
+    opacity: .35; transition: all .2s;
+  }
+  .stage-dot.active { opacity: 1; }
+  .stage-dot.current { transform: scale(1.2); filter: drop-shadow(0 2px 4px rgba(99,102,241,.4)); }
+  .pet-stage-label {
+    text-align: center; color: #6366f1; font-weight: 600; font-size: 14px; margin-bottom: 14px;
+  }
+
+  /* ========== 宠物容器：宠物绝对居中，气泡从中心散开 ========== */
+  .pet-stage-wrap {
+    position: relative;
+    min-height: 240px;
+    cursor: pointer; user-select: none;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+  }
+  .pet-stage-wrap.menu-open {
+    background: rgba(99,102,241,.05);
+    border-radius: 16px;
+  }
+
+  /* 气泡锚点：放在宠物中心（top:50% left:50% 就是宠物中心） */
+  .skill-bubble {
+    position: absolute; top: 50%; left: 50%;
+    width: 56px; height: 56px; margin: -28px 0 0 -28px;
+    border-radius: 50%; border: 2px solid #e2e8f0;
+    background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform .3s cubic-bezier(.2,.9,.3,1.3),
+                opacity .25s ease;
+    z-index: 5;
+    padding: 2px;
+  }
+  .skill-bubble.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translate(var(--tx), var(--ty));
+  }
+  .skill-bubble:active { background: #f0f0ff; }
+  .skill-bubble.disabled { opacity: .35; cursor: not-allowed; }
+  .skill-bubble .bubble-emoji { font-size: 20px; line-height: 1; }
+  .skill-bubble .bubble-name { font-size: 9px; color: #1e293b; font-weight: 600; margin-top: 1px; white-space: nowrap; }
+  .skill-bubble .bubble-cost { font-size: 8px; color: #f97316; margin-top: 0; }
+
+  /* 宠物本体：绝对居中在容器正中 */
+  .pet-stage-img {
+    font-size: 72px; line-height: 1; transition: transform .2s;
+    position: relative; z-index: 10;
+  }
+  .pet-stage-img.wiggle { animation: wiggle 0.6s ease; }
+  .pet-stage-img.menu-open { transform: scale(1.05); }
+  .pet-stage-cap { margin-top: 4px; position: relative; z-index: 10; text-align: center; }
+  @keyframes wiggle {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(-15deg) scale(1.1); }
+    40% { transform: rotate(15deg) scale(1.1); }
+    60% { transform: rotate(-10deg) scale(1.05); }
+    80% { transform: rotate(10deg) scale(1.05); }
+  }
+  .pet-stage-cap { margin-top: 8px; }
+  .pet-mood { display: block; font-size: 14px; color: #475569; }
+  .pet-click-hint { color: #94a3b8; font-size: 11px; }
+
+  /* 饱食度进度条 */
+  .hunger-bar-wrap { margin: 12px 0 16px; }
+  .hunger-bar-label {
+    display: flex; justify-content: space-between; font-size: 13px;
+    color: #475569; font-weight: 600; margin-bottom: 6px;
+  }
+  .hunger-bar {
+    height: 14px; background: #f1f5f9; border-radius: 10px; overflow: hidden;
+    border: 1px solid #e2e8f0;
+  }
+  .hunger-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #fbbf24, #f97316, #ef4444);
+    transition: width .4s ease;
+  }
+  .hunger-hint {
+    text-align: center; margin-top: 8px; font-size: 12px; color: #64748b;
+  }
+  .hunger-hint b { color: #f97316; }
+
+  /* 喂食 */
+  /* ========== 子 Tab（背包 / 切换） ========== */
+  .sub-tabs {
+    display: flex; gap: 0;
+    margin-top: 14px; margin-bottom: 10px;
+    background: #f1f5f9; border-radius: 12px;
+    padding: 4px;
+  }
+  .sub-tab {
+    flex: 1; padding: 9px 0; font-size: 13px; font-weight: 600;
+    color: #64748b; background: transparent; border: none;
+    border-radius: 9px; cursor: pointer; transition: all .2s;
+  }
+  .sub-tab.active {
+    background: #fff; color: #4f46e5;
+    box-shadow: 0 2px 6px rgba(79,70,229,.15);
+  }
+
+  .feed-section { margin-top: 0; }
+  .feed-section h3 { font-size: 15px; color: #334155; margin: 8px 0 10px; }
+  .feed-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .feed-btn {
+    flex: 1 1 calc(33.333% - 6px); min-width: 90px;
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 10px 6px; cursor: pointer; text-align: center;
+    transition: transform .1s, border-color .1s;
+    position: relative;
+  }
+  .feed-btn:active { transform: scale(.96); }
+  .feed-btn:hover:not(.disabled) { border-color: #6366f1; }
+  .feed-btn.disabled { opacity: .4; cursor: not-allowed; }
+  .feed-icon { font-size: 28px; line-height: 1; }
+  .feed-name { font-size: 12px; color: #475569; margin-top: 4px; }
+  .feed-badge {
+    position: absolute; top: 4px; right: 4px;
+    background: #6366f1; color: #fff; font-size: 10px;
+    padding: 1px 5px; border-radius: 10px; font-weight: 700;
+  }
+  .feed-no { font-size: 11px; color: #cbd5e1; margin-top: 4px; }
+
+  /* ========== 商店 ========== */
+  .shop-hint { text-align: center; color: #64748b; margin-bottom: 14px; font-size: 13px; }
+  .shop-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .shop-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 6px; text-align: center; position: relative;
+    display: flex; flex-direction: column; gap: 3px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .shop-emoji { font-size: 28px; line-height: 1; }
+  .shop-name { font-weight: 700; color: #1e293b; font-size: 12px; }
+  .shop-desc { font-size: 10px; color: #16a34a; }
+  .shop-price {
+    display: inline-block; align-self: center;
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    border-radius: 12px; padding: 1px 8px; font-weight: 700;
+    color: #92400e; font-size: 11px; margin-top: 2px;
+  }
+  .shop-badge {
+    position: absolute; top: 4px; right: 4px;
+    background: #10b981; color: #fff; font-size: 9px;
+    padding: 0 5px; border-radius: 10px; font-weight: 700;
+  }
+  .shop-card .btn { font-size: 11px; padding: 5px 0; margin-top: 2px; }
+
+  /* ========== 积分历史 ========== */
+  .my-big-points {
+    text-align: center; font-size: 64px; font-weight: 800;
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 10px 0 4px;
+  }
+  .my-sub { text-align: center; color: #94a3b8; font-size: 13px; margin-bottom: 18px; }
+  .log-list { display: flex; flex-direction: column; gap: 4px; }
+  .log-item {
+    display: flex; justify-content: space-between; align-items: center;
+    background: #f8fafc; border-radius: 10px; padding: 10px 12px;
+  }
+  .log-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+  .log-delta {
+    font-weight: 800; font-size: 16px; min-width: 36px;
+  }
+  .log-delta.plus { color: #10b981; }
+  .log-delta.minus { color: #f97316; }
+  .log-reason { font-size: 12px; color: #334155; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .log-right { text-align: right; flex-shrink: 0; margin-left: 8px; }
+  .log-time { font-size: 11px; color: #94a3b8; }
+  .log-bal { font-size: 11px; color: #6366f1; font-weight: 600; }
+
+  /* ========== 进化弹窗 ========== */
+  .evolve-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.6);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; padding: 20px;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .evolve-card {
+    background: #fff; border-radius: 20px; padding: 30px 24px;
+    text-align: center; max-width: 320px; width: 100%;
+    animation: pop .3s cubic-bezier(.17,.67,.44,1.34);
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  }
+  @keyframes pop {
+    from { transform: scale(.6); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  .evolve-burst { font-size: 30px; margin-bottom: 10px; animation: sparkle 1s ease infinite; }
+  @keyframes sparkle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+  .evolve-emoji-from, .evolve-emoji-to { font-size: 64px; }
+  .evolve-arrow {
+    font-size: 36px; color: #f59e0b; font-weight: 800;
+    margin: 0 6px; vertical-align: middle;
+    animation: arrowPulse .8s ease infinite;
+  }
+  @keyframes arrowPulse {
+    0%, 100% { opacity: .5; }
+    50% { opacity: 1; transform: scale(1.1); }
+  }
+  .evolve-title { font-size: 22px; font-weight: 800; color: #ef4444; margin-top: 12px; }
+  .evolve-sub { color: #475569; font-size: 14px; margin-bottom: 18px; }
+  .evolve-sub b { color: #6366f1; }
+
+  /* ========== 宠物种类选择 ========== */
+  .species-section { margin-top: 0; }
+  .species-hint { font-size: 14px; color: #4f46e5; font-weight: 600; text-align: center; margin-bottom: 10px; }
+  .species-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .species-card {
+    background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 10px 6px; text-align: center; position: relative;
+    cursor: pointer; transition: all .15s;
+  }
+  .species-card.selected {
+    border-color: #6366f1; background: #f0f0ff;
+    box-shadow: 0 2px 8px rgba(99,102,241,.25);
+  }
+  .species-card.locked { opacity: .55; cursor: pointer; }
+  .species-card.locked:active { opacity: .7; }
+  .species-card.rare { background: linear-gradient(135deg, #fdf2f8, #fce7f3); }
+  .species-emoji { font-size: 30px; line-height: 1; }
+  .species-name { font-size: 12px; font-weight: 700; color: #1e293b; margin-top: 4px; }
+  .species-rarity { font-size: 10px; margin-top: 2px; }
+  .species-rarity.common { color: #94a3b8; }
+  .species-rarity.rare { color: #db2777; font-weight: 700; }
+  .species-price { font-size: 11px; color: #b45309; font-weight: 600; margin-top: 2px; }
+  .species-free { font-size: 11px; color: #10b981; font-weight: 700; margin-top: 2px; background: #ecfdf5; padding: 1px 8px; border-radius: 10px; }
+  .species-check { font-size: 11px; color: #10b981; font-weight: 700; margin-top: 2px; }
+
+  /* ========== 宠物技能按钮 ========== */
+  .skills-section { margin-top: 16px; }
+  .skills-section h3 { font-size: 15px; color: #334155; margin: 8px 0 6px; }
+  .skills-hint { color: #94a3b8; font-size: 12px; margin-bottom: 10px; }
+  .skills-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  }
+  .skill-btn {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    padding: 10px 6px; cursor: pointer; text-align: center;
+    transition: all .12s;
+  }
+  .skill-btn:active:not(.disabled) { transform: scale(.95); background: #f0f0ff; }
+  .skill-btn.disabled { opacity: .4; cursor: not-allowed; }
+  .skill-emoji-btn { font-size: 26px; line-height: 1; }
+  .skill-name { font-size: 12px; color: #334155; font-weight: 600; margin-top: 3px; }
+  .skill-cost { font-size: 10px; color: #f97316; margin-top: 2px; }
+
+  /* 技能播放时的基础 fallback（未匹配专用动画时生效） */
+  .pet-stage-img.skill-active { animation: skillPop 1.2s ease; }
+  @keyframes skillPop {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.3) rotate(-8deg); }
+    50% { transform: scale(1.4) rotate(8deg); }
+    75% { transform: scale(1.2) rotate(-4deg); }
+    100% { transform: scale(1); }
+  }
+
+  /* ========== 7 种专用技能动画（写在后面，覆盖上面的 fallback） ========== */
+  /* 拍翅膀 / 扇翅膀：快速上下扑腾 */
+  .pet-stage-img.skill-flap { animation: skillFlap .8s ease; }
+  @keyframes skillFlap {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    25% { transform: translateY(-18px) rotate(-6deg); }
+    50% { transform: translateY(-22px) rotate(6deg); }
+    75% { transform: translateY(-14px) rotate(-4deg); }
+  }
+  /* 跳舞 / 唱歌 / 叽叽啾啾：左右蹦跶 + 旋转 */
+  .pet-stage-img.skill-dance { animation: skillDance 1s ease; }
+  @keyframes skillDance {
+    0%, 100% { transform: translateY(0) rotate(0) scale(1); }
+    20% { transform: translateY(-12px) rotate(-10deg) scale(1.08); }
+    40% { transform: translateY(-6px) rotate(10deg) scale(1.05); }
+    60% { transform: translateY(-14px) rotate(-8deg) scale(1.1); }
+    80% { transform: translateY(-4px) rotate(8deg) scale(1.03); }
+  }
+  /* 跳跃 / 飞 / 蹦跳：高高弹起 */
+  .pet-stage-img.skill-jump { animation: skillJump .9s cubic-bezier(.3,.1,.5,1); }
+  @keyframes skillJump {
+    0%, 100% { transform: translateY(0) scaleY(1); }
+    15% { transform: translateY(-6px) scaleY(1.15) scaleX(.9); }
+    50% { transform: translateY(-45px) scaleY(.92) scaleX(1.06); }
+    85% { transform: translateY(-6px) scaleY(1.15) scaleX(.9); }
+  }
+  /* 啄虫子 / 塞腮 / 啃 / 吃：快速前倾后仰 */
+  .pet-stage-img.skill-peck { animation: skillPeck .7s ease; }
+  @keyframes skillPeck {
+    0%, 100% { transform: translateX(0) rotate(0); }
+    20% { transform: translateX(-6px) rotate(-10deg); }
+    40% { transform: translateX(6px) rotate(12deg) scale(1.05); }
+    60% { transform: translateX(-4px) rotate(-8deg); }
+    80% { transform: translateX(5px) rotate(10deg); }
+  }
+  /* 睡觉 / 打盹：慢慢缩小 + 微微倾斜 */
+  .pet-stage-img.skill-sleep { animation: skillSleep 1.4s ease; }
+  @keyframes skillSleep {
+    0% { transform: scale(1) rotate(0); }
+    40% { transform: scale(.85) rotate(-6deg); opacity: .85; }
+    70% { transform: scale(.82) rotate(4deg); opacity: .75; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+  /* 摇尾巴 / 打滚 / 翻跟头：旋转 */
+  .pet-stage-img.skill-spin { animation: skillSpin .9s ease; }
+  @keyframes skillSpin {
+    0% { transform: rotate(0) scale(1); }
+    40% { transform: rotate(180deg) scale(1.1); }
+    70% { transform: rotate(300deg) scale(1.05); }
+    100% { transform: rotate(360deg) scale(1); }
+  }
+  /* 星光 / 闪 / 下雨 / 滑翔：发光缩放脉动 */
+  .pet-stage-img.skill-sparkle { animation: skillSparkle 1s ease; }
+  @keyframes skillSparkle {
+    0%, 100% { transform: scale(1); filter: brightness(1); }
+    30% { transform: scale(1.25); filter: brightness(1.4); }
+    60% { transform: scale(.95); filter: brightness(1.2); }
+    80% { transform: scale(1.1); filter: brightness(1.3); }
+  }
+  .skill-emoji {
+    position: absolute; top: -10px; right: -10px;
+    font-size: 40px; animation: skillFloat 1.2s ease forwards;
+    pointer-events: none;
+  }
+  @keyframes skillFloat {
+    0% { transform: scale(.3) translateY(0); opacity: 0; }
+    30% { transform: scale(1.5) translateY(-20px); opacity: 1; }
+    80% { transform: scale(1.2) translateY(-60px); opacity: 1; }
+    100% { transform: scale(1) translateY(-80px); opacity: 0; }
+  }
+
+  /* 饱食度降低后的表情变化 */
+  .pet-stage-img { position: relative; }
 </style>
 </head>
 <body>
 <div id="app">
   <!-- 顶部标题 -->
   <div class="header">
-    <h1>📚 英语单词拼写卡</h1>
+    <div class="header-top">
+      <h1>📚 英语单词拼写卡</h1>
+      <!-- 积分（全局） -->
+      <div class="points-chip" @click="step = 'my'">
+        <span class="pts-icon">🏆</span>
+        <span class="pts-val">{{ points }}</span>
+        <span class="pts-label">积分</span>
+      </div>
+    </div>
     <p>上传课本单词表 · 自动识别 · 练习拼写</p>
   </div>
 
@@ -499,7 +907,7 @@
                  maxlength="1"
                  :value="userBlanks[idx] || ''"
                  @input="onBlankInput($event, idx)"
-                 @keydown.enter.prevent="onBlankKeydown($event, idx)"
+                 @keydown="onBlankKeydown($event, idx)"
                  :readonly="showAnswer"
                  autocomplete="off" autocapitalize="off" spellcheck="false" />
         </template>
@@ -565,6 +973,214 @@
     </div>
   </div>
 
+  <!-- ========== 宠物家园 ========== -->
+  <div class="card-panel pet-panel" v-if="step === 'pet'">
+    <h2 class="panel-title">🐾 宠物家园</h2>
+
+    <!-- 未领养：展示所有可选宠物 -->
+    <div v-if="!pet.adopted" class="pet-adopt">
+      <h3 style="text-align:center;margin-bottom:6px;">🐾 选择你的第一只宠物</h3>
+      <p class="pet-tip">背单词赚积分，喂食让它进化！免费宠物直接领养，稀有宠物需要积分解锁</p>
+      <div class="species-grid" style="margin-top: 10px;">
+        <div v-for="sp in PET_SPECIES" :key="sp.id"
+             class="species-card"
+             :class="{ rare: sp.rarity === 'rare' }"
+             @click="adoptPet(sp)">
+          <div class="species-emoji">{{ sp.stageEmojis[3] }}</div>
+          <div class="species-name">{{ sp.name }}</div>
+          <div class="species-rarity" :class="sp.rarity">
+            {{ sp.rarity === 'rare' ? '✨ 稀有' : '普通' }}
+          </div>
+          <div v-if="sp.price === 0" class="species-free">🎁 免费</div>
+          <div v-else class="species-price">🏆 {{ sp.price }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已领养 -->
+    <template v-else>
+      <!-- 四阶段进化条 -->
+      <div class="pet-stage-bar">
+        <div v-for="(s, i) in PET_STAGES" :key="i"
+             class="stage-dot"
+             :class="{ active: i <= pet.stage, current: i === pet.stage }">
+          {{ petSpecies.stageEmojis[i] }}
+        </div>
+      </div>
+
+      <!-- 宠物本体 + 技能气泡弹出 -->
+      <div class="pet-stage-wrap" :class="{ 'menu-open': skillMenuOpen }">
+        <!-- 7 个技能气泡：围绕宠物扇形弹出 -->
+        <button v-for="(sk, idx) in petSpecies.skills" :key="sk.id"
+                class="skill-bubble"
+                :class="{ disabled: pet.hunger < sk.cost, show: skillMenuOpen }"
+                :style="skillBubbleStyle(idx)"
+                :disabled="pet.hunger < sk.cost"
+                @click.stop="performSkill(sk)">
+          <span class="bubble-emoji">{{ sk.emoji }}</span>
+          <span class="bubble-name">{{ sk.name }}</span>
+          <span class="bubble-cost">🍖{{ sk.cost }}</span>
+        </button>
+
+        <!-- 宠物本体（技能动画类） -->
+        <div class="pet-stage-img"
+             :class="{
+               wiggle: petWiggle,
+               'skill-active': activeSkill,
+               'skill-flap': activeSkill?.id === 'flap' || activeSkill?.id === 'wing',
+               'skill-dance': activeSkill?.id === 'dance' || activeSkill?.id === 'tweet' || activeSkill?.id === 'sing',
+               'skill-jump': activeSkill?.id === 'hop' || activeSkill?.id === 'binky' || activeSkill?.id === 'prance' || activeSkill?.id === 'fly' || activeSkill?.id === 'jump',
+               'skill-peck': activeSkill?.id === 'peck' || activeSkill?.id === 'stuff' || activeSkill?.id === 'chew' || activeSkill?.id === 'eat',
+               'skill-sleep': activeSkill?.id === 'rest' || activeSkill?.id === 'sleep',
+               'skill-spin': activeSkill?.id === 'wag' || activeSkill?.id === 'roll' || activeSkill?.id === 'flip',
+               'skill-sparkle': activeSkill?.id === 'sparkle' || activeSkill?.id === 'rain' || activeSkill?.id === 'storm' || activeSkill?.id === 'glide',
+               'menu-open': skillMenuOpen
+             }"
+             @click.stop="toggleSkillMenu">
+          <span v-if="activeSkill" class="skill-emoji">{{ activeSkill.emoji }}</span>
+          {{ petEmoji }}
+        </div>
+
+        <div class="pet-stage-cap" @click="toggleSkillMenu">
+          <span v-if="pet.hunger === 0" class="pet-mood">😴 好饿...</span>
+          <span v-else-if="pet.hunger < 100" class="pet-mood">😩 想吃东西</span>
+          <span v-else-if="pet.hunger < 300" class="pet-mood">😊 还不错</span>
+          <span v-else class="pet-mood">🥰 好饱好开心</span>
+          <small class="pet-click-hint">{{ skillMenuOpen ? '点空白处收起' : '点宠物表演技能 🎭' }}</small>
+        </div>
+      </div>
+
+      <!-- 饱食度进度条 -->
+      <div class="hunger-bar-wrap">
+        <div class="hunger-bar-label">
+          <span>🍖 饱食度</span>
+          <span>{{ pet.hunger }} / {{ PET_MAX_HUNGER }}</span>
+        </div>
+        <div class="hunger-bar">
+          <div class="hunger-fill" :style="{ width: (pet.hunger / PET_MAX_HUNGER * 100) + '%' }"></div>
+        </div>
+        <div class="hunger-hint" v-if="!isMaxStage">还差 <b>{{ hungerToNextStage }}</b> 饱食度进入下一阶段（{{ PET_STAGES[pet.stage + 1].name }} {{ petSpecies.stageEmojis[pet.stage + 1] }}）</div>
+        <div class="hunger-hint" v-else>🎉 已是最终进化形态！继续保持饱食度哦~</div>
+      </div>
+
+      <!-- 子 Tab：背包 / 切换种类 -->
+      <div class="sub-tabs">
+        <button class="sub-tab" :class="{ active: petSubTab === 'bag' }" @click="petSubTab = 'bag'">🎒 背包喂食</button>
+        <button class="sub-tab" :class="{ active: petSubTab === 'species' }" @click="petSubTab = 'species'">🔄 切换宠物</button>
+      </div>
+
+      <!-- 背包 Tab -->
+      <div class="feed-section" v-if="petSubTab === 'bag'">
+        <div v-if="Object.keys(backpack).filter(k => foodCount(k) > 0).length === 0" class="empty-tip">背包空空的，去商店买食物吧</div>
+        <div v-else class="feed-row">
+          <button v-for="f in FOODS" :key="f.id"
+                  v-show="foodCount(f.id) > 0"
+                  class="feed-btn"
+                  @click="feedFood(f.id)">
+            <div class="feed-icon">{{ f.emoji }}</div>
+            <div class="feed-name">{{ f.name }}</div>
+            <div class="feed-badge">×{{ foodCount(f.id) }}</div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 切换种类 Tab -->
+      <div class="species-section" v-if="petSubTab === 'species'">
+        <div class="species-hint">当前：{{ petSpecies.name }}{{ petEmoji }}</div>
+        <div class="species-grid">
+          <div v-for="sp in PET_SPECIES" :key="sp.id"
+               class="species-card"
+               :class="{ selected: pet.species === sp.id, locked: !pet.unlockedSpecies.includes(sp.id), rare: sp.rarity === 'rare' }"
+               @click="switchOrUnlockSpecies(sp)">
+            <div class="species-emoji">{{ sp.stageEmojis[pet.stage] }}</div>
+            <div class="species-name">{{ sp.name }}</div>
+            <div class="species-rarity" :class="sp.rarity">
+              {{ sp.rarity === 'rare' ? '✨ 稀有' : '普通' }}
+            </div>
+            <div class="species-price" v-if="!pet.unlockedSpecies.includes(sp.id)">
+              🏆 {{ sp.price }}
+            </div>
+            <div class="species-check" v-else>✓ 已拥有</div>
+          </div>
+        </div>
+      </div>
+    </template>
+  </div>
+
+  <!-- ========== 商店 ========== -->
+  <div class="card-panel shop-panel" v-if="step === 'shop'">
+    <h2 class="panel-title">🛒 积分商店</h2>
+    <p class="shop-hint">背单词赚积分，积分换食物喂宠物！</p>
+    <div class="shop-grid">
+      <div v-for="f in FOODS" :key="f.id" class="shop-card">
+        <div class="shop-emoji">{{ f.emoji }}</div>
+        <div class="shop-name">{{ f.name }}</div>
+        <div class="shop-desc">饱食度 +{{ f.hunger }}</div>
+        <div class="shop-price">🏆 {{ f.price }}</div>
+        <div class="shop-badge" v-if="foodCount(f.id) > 0">已有 ×{{ foodCount(f.id) }}</div>
+        <button class="btn btn-primary"
+                :disabled="points < f.price"
+                :class="{ disabled: points < f.price }"
+                @click="buyFood(f.id)">
+          {{ points < f.price ? '积分不足' : '购买' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 积分历史 ========== -->
+  <div class="card-panel my-panel" v-if="step === 'my'">
+    <h2 class="panel-title">🏆 我的积分</h2>
+    <div class="my-big-points">{{ points }}</div>
+    <div class="my-sub">总积分</div>
+
+    <div v-if="pointsLog.length === 0" class="empty-tip">还没有积分记录，快去背单词吧！</div>
+
+    <div v-else class="log-list">
+      <div v-for="(entry, i) in pointsLog.slice().reverse()" :key="i" class="log-item">
+        <div class="log-left">
+          <span class="log-delta" :class="{ plus: entry.delta > 0, minus: entry.delta < 0 }">
+            {{ entry.delta > 0 ? '+' : '' }}{{ entry.delta }}
+          </span>
+          <span class="log-reason">{{ entry.reason }}</span>
+        </div>
+        <div class="log-right">
+          <div class="log-time">{{ new Date(entry.ts).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' }) }}</div>
+          <div class="log-bal">余额 {{ entry.balance }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 底部 Tab 导航 ========== -->
+  <div class="tab-bar" v-if="step !== 'quiz'">
+    <button class="tab-btn" :class="{ active: step === 'upload' }" @click="step = 'upload'">
+      <span class="tab-ico">📚</span><span class="tab-label">背单词</span>
+    </button>
+    <button class="tab-btn" :class="{ active: step === 'pet' }" @click="step = 'pet'">
+      <span class="tab-ico">🐾</span><span class="tab-label">宠物</span>
+    </button>
+    <button class="tab-btn" :class="{ active: step === 'shop' }" @click="step = 'shop'">
+      <span class="tab-ico">🛒</span><span class="tab-label">商店</span>
+    </button>
+    <button class="tab-btn" :class="{ active: step === 'my' }" @click="step = 'my'">
+      <span class="tab-ico">🏆</span><span class="tab-label">积分</span>
+    </button>
+  </div>
+
+  <!-- ========== 进化弹窗 ========== -->
+  <div class="evolve-mask" v-if="evolveModal" @click="closeEvolveModal">
+    <div class="evolve-card" @click.stop>
+      <div class="evolve-burst">✨🎉✨</div>
+      <div class="evolve-emoji-from">{{ petSpecies.stageEmojis[evolveModal.from] }}</div>
+      <div class="evolve-arrow">→</div>
+      <div class="evolve-emoji-to">{{ petSpecies.stageEmojis[evolveModal.to] }}</div>
+      <div class="evolve-title">进化啦！</div>
+      <div class="evolve-sub">从 {{ PET_STAGES[evolveModal.from].name }} 进化为 <b>{{ PET_STAGES[evolveModal.to].name }}</b>！</div>
+      <button class="btn btn-primary" @click="closeEvolveModal">太棒了</button>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="toast" v-if="toast">{{ toast }}</div>
 </div>
@@ -572,7 +1188,14 @@
 const { createApp, ref, computed, nextTick, onMounted, watch } = Vue;
 
 // ========== 本地存储 ==========
-const LS_KEYS = { WORDS: 'yypx_words', ERRORS: 'yypx_errors' };
+const LS_KEYS = {
+  WORDS: 'yypx_words',
+  ERRORS: 'yypx_errors',
+  POINTS: 'yypx_points',
+  POINTS_LOG: 'yypx_points_log',
+  PET: 'yypx_pet',
+  BACKPACK: 'yypx_backpack'
+};
 const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)) || null; } catch(e) { return null; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e) {} };
 
@@ -757,6 +1380,343 @@ createApp({
     // 防误持久化：practiceErrors 临时替换 words，此时跳过持久化
     const suppressSave = ref(false);
 
+    // ========== 积分系统 ==========
+    const points = ref(loadJSON(LS_KEYS.POINTS) || 0);
+    // pointsLog: [{ ts, delta, reason, balance }]  只保留最近 200 条
+    const pointsLog = ref(loadJSON(LS_KEYS.POINTS_LOG) || []);
+    const combo = ref(0);         // 当前连击数（错题练习也计数）
+    const lastQuizCorrect = ref(false); // 上一题是否正确（用于 combo 判断）
+    const evolveModal = ref(null); // 进化弹窗: { fromStage, toStage }
+
+    // ========== 宠物系统 ==========
+    // 经济重平衡：MAX_HUNGER=5000，阶段 0/800/2500/5000，每天正常练习净增约 155 饱食度 → 约 32 天长满
+    const PET_STAGES = [
+      { name: '蛋',    minHunger: 0 },
+      { name: '幼小',  minHunger: 800 },
+      { name: '中等',  minHunger: 2500 },
+      { name: '长大',  minHunger: 5000 }
+    ];
+    const PET_MAX_HUNGER = 5000;
+    const HUNGER_DECAY_MS = 90 * 1000; // 90 秒掉 1 点（比之前快 3.3 倍，让用户有照顾感）
+
+    // ========== 14 种宠物 ==========
+    // 普通（小鸡免费，其余 3000）/ 稀有（6000）
+    // 每个物种 4 阶段 emoji + 7 个技能（emoji 动画 + 饱食度消耗 + 描述）
+    const PET_SPECIES = [
+      // ===== 普通 7 种 =====
+      {
+        id: 'chick', name: '小鸡', rarity: 'common', price: 0,
+        stageEmojis: ['🥚','🐣','🐥','🐤'],
+        skills: [
+          { id:'flap',    name:'拍翅膀',   emoji:'🐤', cost:20, desc:'扑腾两下翅膀～' },
+          { id:'chirp',   name:'叽叽叫',   emoji:'🐤', cost:15, desc:'叽叽叽叽！' },
+          { id:'dance',   name:'小鸡舞',   emoji:'🐥', cost:35, desc:'啄米啄米啄米！' },
+          { id:'peck',    name:'啄虫子',   emoji:'🐛', cost:25, desc:'一条大虫到手！' },
+          { id:'rest',    name:'打个盹',   emoji:'🐥', cost:10, desc:'zzzz...' },
+          { id:'sing',    name:'清晨啼',   emoji:'🐤', cost:40, desc:'喔~喔~喔~' },
+          { id:'fly',     name:'试飞一下', emoji:'🐤', cost:50, desc:'扑腾扑腾！' }
+        ]
+      },
+      {
+        id: 'cat', name: '小橘猫', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐱','😺','😸'],
+        skills: [
+          { id:'meow',   name:'喵喵叫',   emoji:'🐈', cost:20, desc:'喵～喵～' },
+          { id:'purr',   name:'打呼噜',   emoji:'😺', cost:15, desc:'呼～噜噜噜' },
+          { id:'stretch',name:'伸懒腰',   emoji:'😺', cost:10, desc:'喵～好舒服' },
+          { id:'catch',  name:'抓老鼠',   emoji:'🐭', cost:35, desc:'咻！抓到啦！' },
+          { id:'ball',   name:'玩毛线球', emoji:'🧶', cost:30, desc:'咕噜咕噜～' },
+          { id:'sunbathe',name:'晒太阳',  emoji:'😸', cost:25, desc:'暖暖的～' },
+          { id:'jump',   name:'跳高高',   emoji:'😸', cost:40, desc:'喵！好高！' }
+        ]
+      },
+      {
+        id: 'dog', name: '柯基小狗', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐶','🐕','🦮'],
+        skills: [
+          { id:'woof',    name:'汪汪叫',   emoji:'🐕', cost:20, desc:'汪！汪！' },
+          { id:'wag',     name:'摇尾巴',   emoji:'🐕', cost:10, desc:'摇啊摇～' },
+          { id:'sit',     name:'坐下',     emoji:'🐶', cost:15, desc:'乖乖坐好' },
+          { id:'fetch',   name:'捡飞盘',   emoji:'🥏', cost:35, desc:'嗖！捡回来！' },
+          { id:'roll',    name:'打滚',     emoji:'🐶', cost:25, desc:'咕噜咕噜' },
+          { id:'sniff',   name:'闻一闻',   emoji:'🐕', cost:20, desc:'嗯～好香' },
+          { id:'bark',    name:'看家吠',   emoji:'🔔', cost:30, desc:'陌生人！汪！' }
+        ]
+      },
+      {
+        id: 'rabbit', name: '小白兔', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐰','🐇','🐇'],
+        skills: [
+          { id:'hop',     name:'蹦蹦跳',   emoji:'🐰', cost:20, desc:'蹦！蹦！' },
+          { id:'earwig',  name:'抖耳朵',   emoji:'🐇', cost:10, desc:'唰唰～' },
+          { id:'chew',    name:'啃胡萝卜', emoji:'🥕', cost:25, desc:'咔嚓咔嚓' },
+          { id:'cuddle',  name:'缩一团',   emoji:'🐇', cost:15, desc:'好暖和～' },
+          { id:'run',     name:'赛跑',     emoji:'🐰', cost:40, desc:'嗖——！' },
+          { id:'wash',    name:'洗脸脸',   emoji:'🐰', cost:20, desc:'洗脸洗脸' },
+          { id:'binky',   name:'兔子跳',   emoji:'🐇', cost:35, desc:'开心到起飞！' }
+        ]
+      },
+      {
+        id: 'hamster', name: '仓鼠', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐹','🐹','🐹'],
+        skills: [
+          { id:'stuff',   name:'塞腮帮子', emoji:'🐹', cost:15, desc:'塞！塞！塞！' },
+          { id:'run',     name:'跑滚轮',   emoji:'🎡', cost:25, desc:'呼哧呼哧' },
+          { id:'groom',   name:'梳毛毛',   emoji:'🐹', cost:10, desc:'好舒服～' },
+          { id:'tunnel',  name:'挖洞',     emoji:'🕳️', cost:30, desc:'挖挖挖挖！' },
+          { id:'sleep',   name:'缩成球',   emoji:'🐹', cost:15, desc:'zzz' },
+          { id:'hide',    name:'躲起来',   emoji:'🐹', cost:20, desc:'找不到我～' },
+          { id:'climb',   name:'爬管道',   emoji:'🐹', cost:35, desc:'咻咻咻！' }
+        ]
+      },
+      {
+        id: 'bird', name: '虎皮小鸟', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐥','🐦','🦜'],
+        skills: [
+          { id:'tweet',   name:'叽叽啾啾', emoji:'🐦', cost:20, desc:'啾啾啾～' },
+          { id:'wing',    name:'扇翅膀',   emoji:'🪶', cost:15, desc:'呼～呼～' },
+          { id:'mirror',  name:'照镜子',   emoji:'🪞', cost:10, desc:'这是谁呀？' },
+          { id:'sing',    name:'唱歌',     emoji:'🎶', cost:35, desc:'♪♫♪♫' },
+          { id:'dance',   name:'跳小步舞', emoji:'🐦', cost:25, desc:'蹦跶蹦跶' },
+          { id:'peck',    name:'啄小米',   emoji:'🌾', cost:20, desc:'啄啄啄' },
+          { id:'talk',    name:'说你好',   emoji:'🦜', cost:45, desc:'你好！你好！' }
+        ]
+      },
+      {
+        id: 'fish', name: '小金鱼', rarity: 'common', price: 300,
+        stageEmojis: ['🫧','🐟','🐠','🐡'],
+        skills: [
+          { id:'swim',    name:'游一圈',   emoji:'🌊', cost:15, desc:'咕噜咕噜' },
+          { id:'bubble',  name:'吐泡泡',   emoji:'🫧', cost:10, desc:'啵啵啵～' },
+          { id:'flip',    name:'翻跟头',   emoji:'🔄', cost:25, desc:'咻！翻！' },
+          { id:'eat',     name:'吃鱼食',   emoji:'🍞', cost:20, desc:'啊呜啊呜' },
+          { id:'sleep',   name:'停水中',   emoji:'😴', cost:10, desc:'悬浮 zzZ' },
+          { id:'show',    name:'摆尾巴',   emoji:'🐠', cost:15, desc:'唰唰唰' },
+          { id:'jump',    name:'跳出水',   emoji:'⬆️', cost:40, desc:'啪！哗！' }
+        ]
+      },
+
+      // ===== 稀有 6 种 =====
+      {
+        id: 'fox', name: '小狐狸', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','🦊','🦊','🦊'],
+        skills: [
+          { id:'sly',     name:'坏笑',     emoji:'🦊', cost:20, desc:'嘿嘿嘿～' },
+          { id:'pounce',  name:'扑一下',   emoji:'🦊', cost:30, desc:'咻！' },
+          { id:'wag',     name:'摇大尾巴', emoji:'🦊', cost:15, desc:'大尾巴晃啊晃' },
+          { id:'howl',    name:'嗷呜',     emoji:'🌙', cost:40, desc:'嗷~~~~~~~~' },
+          { id:'sniff',   name:'闻味道',   emoji:'🦊', cost:20, desc:'有猎物！' },
+          { id:'purr',    name:'呼噜',     emoji:'🦊', cost:15, desc:'呼～噜噜' },
+          { id:'trick',   name:'变魔术',   emoji:'🎩', cost:55, desc:'咦？变没了！' }
+        ]
+      },
+      {
+        id: 'chinchilla', name: '龙猫', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','🐹','🐭','🐁'],
+        skills: [
+          { id:'dust',    name:'沙浴',     emoji:'🐭', cost:25, desc:'翻滚翻滚～' },
+          { id:'situp',   name:'站起来',   emoji:'🐭', cost:15, desc:'两只脚脚站' },
+          { id:'jump',    name:'大跳跃',   emoji:'🐭', cost:35, desc:'咻！好高！' },
+          { id:'wash',    name:'洗手手',   emoji:'🐭', cost:20, desc:'沙沙沙' },
+          { id:'eat',     name:'啃苹果',   emoji:'🍎', cost:25, desc:'咔嚓咔嚓' },
+          { id:'sleep',   name:'缩成团',   emoji:'🐭', cost:10, desc:'毛团团～' },
+          { id:'glide',   name:'滑翔',     emoji:'🐭', cost:50, desc:'展开大尾巴！' }
+        ]
+      },
+      {
+        id: 'deer', name: '小鹿', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','🦌','🦌','🦌'],
+        skills: [
+          { id:'prance',  name:'蹦跳',     emoji:'🦌', cost:25, desc:'哒哒哒～' },
+          { id:'groom',   name:'舔毛毛',   emoji:'🦌', cost:15, desc:'舔舔' },
+          { id:'run',     name:'飞奔',     emoji:'🦌', cost:40, desc:'嗖嗖嗖！' },
+          { id:'look',    name:'警觉张望', emoji:'🦌', cost:20, desc:'有动静！' },
+          { id:'rub',     name:'磨鹿角',   emoji:'🦌', cost:30, desc:'擦擦擦' },
+          { id:'drink',   name:'喝水水',   emoji:'💧', cost:20, desc:'咕嘟咕嘟' },
+          { id:'sleep',   name:'卧下休息', emoji:'🦌', cost:15, desc:'闭眼 zzZ' }
+        ]
+      },
+      {
+        id: 'cloud', name: '云朵小羊', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','☁️','☁️','🐑'],
+        skills: [
+          { id:'float',   name:'飘起来',   emoji:'🎈', cost:25, desc:'飘飘悠悠～' },
+          { id:'bounce',  name:'蹦蹦跳',   emoji:'⬆️', cost:30, desc:'弹弹弹！' },
+          { id:'rain',    name:'下小雨',   emoji:'🌧️', cost:35, desc:'淅淅沥沥' },
+          { id:'storm',   name:'打雷啦',   emoji:'⛈️', cost:45, desc:'轰隆隆！' },
+          { id:'shape',   name:'变形状',   emoji:'🐑', cost:50, desc:'变成小兔子！' },
+          { id:'cuddle',  name:'抱一抱',   emoji:'🫶', cost:20, desc:'软软的～' },
+          { id:'sing',    name:'哼小曲',   emoji:'🎶', cost:30, desc:'♪啦啦啦' }
+        ]
+      },
+      {
+        id: 'dragon', name: '星光小龙', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','🐲','🐉','🐉'],
+        skills: [
+          { id:'roar',    name:'吼一声',   emoji:'🐉', cost:40, desc:'吼~~~~~~~~~' },
+          { id:'fire',    name:'吐小火苗', emoji:'🐉', cost:55, desc:'呼——！' },
+          { id:'fly',     name:'飞一圈',   emoji:'🐲', cost:50, desc:'嗖嗖嗖！' },
+          { id:'sparkle', name:'闪星光',   emoji:'✨', cost:30, desc:'✨✨✨' },
+          { id:'breathe', name:'喷仙气',   emoji:'🐲', cost:35, desc:'呼～仙气飘飘' },
+          { id:'curl',    name:'盘成圈',   emoji:'⭕', cost:20, desc:'盘盘盘' },
+          { id:'sleep',   name:'龙打盹',   emoji:'💤', cost:15, desc:'zZzZzZ' }
+        ]
+      },
+      {
+        id: 'unicorn', name: '月光独角兽', rarity: 'rare', price: 600,
+        stageEmojis: ['🫧','🦄','🦄','🦄'],
+        skills: [
+          { id:'sparkle', name:'彩虹闪',   emoji:'🌈', cost:40, desc:'彩虹闪闪！' },
+          { id:'gallop',  name:'月光奔跑', emoji:'🌙', cost:45, desc:'哒哒哒哒～' },
+          { id:'prance',  name:'优雅踏步', emoji:'🦄', cost:30, desc:'优雅优雅' },
+          { id:'wish',    name:'许个愿',   emoji:'🌟', cost:55, desc:'愿望成真！' },
+          { id:'heal',    name:'治愈光',   emoji:'💖', cost:50, desc:'治愈一切～' },
+          { id:'fly',     name:'飞翔',     emoji:'🦄', cost:50, desc:'上天啦！' },
+          { id:'sing',    name:'月光歌',   emoji:'🎵', cost:35, desc:'♪空灵歌声' }
+        ]
+      }
+    ];
+    const speciesMap = Object.fromEntries(PET_SPECIES.map(s => [s.id, s]));
+
+    // ========== 商店 & 背包 ==========
+    // 食物 18 种，分三档：便宜零食档 5 种、主食档 7 种、豪华档 6 种
+    const FOODS = [
+      // —— 便宜零食档 ——
+      { id: 'grass',   name: '青草',     emoji: '🌱', price: 5,   hunger: 8   },
+      { id: 'seed',    name: '种子',     emoji: '🌰', price: 10,  hunger: 15  },
+      { id: 'water',   name: '喝水',     emoji: '💧', price: 10,  hunger: 10  },
+      { id: 'crumb',   name: '面包屑',   emoji: '🍞', price: 20,  hunger: 30  },
+      { id: 'snack',   name: '小零食',   emoji: '🍪', price: 30,  hunger: 50  },
+      { id: 'carrot',  name: '胡萝卜',   emoji: '🥕', price: 30,  hunger: 55  },
+      // —— 主食档 ——
+      { id: 'fish',    name: '小鱼干',   emoji: '🐟', price: 40,  hunger: 70  },
+      { id: 'bone',    name: '肉骨头',   emoji: '🦴', price: 45,  hunger: 85  },
+      { id: 'canned',  name: '主食罐头', emoji: '🥫', price: 50,  hunger: 100 },
+      { id: 'cheese',  name: '奶酪块',   emoji: '🧀', price: 55,  hunger: 110 },
+      { id: 'egg',     name: '水煮蛋',   emoji: '🥚', price: 60,  hunger: 120 },
+      { id: 'milk',    name: '牛奶',     emoji: '🥛', price: 65,  hunger: 130 },
+      // —— 豪华大餐档 ——
+      { id: 'feast',   name: '豪华大餐', emoji: '🍖', price: 100, hunger: 200 },
+      { id: 'cake',    name: '生日蛋糕', emoji: '🎂', price: 150, hunger: 280 },
+      { id: 'sushi',   name: '寿司拼盘', emoji: '🍣', price: 180, hunger: 320 },
+      { id: 'ramen',   name: '拉面一碗', emoji: '🍜', price: 150, hunger: 280 },
+      { id: 'steak',   name: '牛排',     emoji: '🥩', price: 200, hunger: 360 },
+      { id: 'icecream',name: '冰淇淋',   emoji: '🍦', price: 220, hunger: 380 }
+    ];
+    const foodMap = Object.fromEntries(FOODS.map(f => [f.id, f]));
+    const backpack = ref(loadJSON(LS_KEYS.BACKPACK) || {}); // { seed: 2, canned: 1 }
+
+    // ===== 宠物 state（带旧数据迁移 + 每物种独立饱食度）=====
+    const petRaw = loadJSON(LS_KEYS.PET);
+    let petState;
+    function makeSpeciesState(hunger = 50, stage = 0) {
+      return { hunger, stage, lastTick: Date.now() };
+    }
+    function migrateWithSpecies(base) {
+      // 老数据没有 perSpecies，用当前 species 初始化一份
+      const cur = makeSpeciesState(base.hunger || 0, base.stage || 0);
+      const perSpecies = {};
+      perSpecies[base.species] = cur;
+      return { ...base, perSpecies };
+    }
+
+    if (petRaw && petRaw.adopted && !petRaw.species) {
+      // 极旧版：没有 species → 迁移为小鸡
+      const oldH = petRaw.hunger || 0;
+      petState = {
+        adopted: true, species: 'chick',
+        unlockedSpecies: ['chick']
+      };
+      let newStage = 0;
+      for (let i = PET_STAGES.length - 1; i >= 0; i--) {
+        if (oldH >= PET_STAGES[i].minHunger) { newStage = i; break; }
+      }
+      petState = migrateWithSpecies({ ...petState, stage: newStage, hunger: oldH * 5 });
+      saveJSON(LS_KEYS.PET, petState);
+    } else if (petRaw && petRaw.adopted) {
+      // 有 species 但可能没 perSpecies（迁移）
+      petState = migrateWithSpecies({
+        adopted: true,
+        species: petRaw.species || 'chick',
+        stage: petRaw.stage || 0,
+        hunger: Math.min(PET_MAX_HUNGER, petRaw.hunger || 0),
+        unlockedSpecies: petRaw.unlockedSpecies || [petRaw.species || 'chick']
+      });
+      // 如果已经有 perSpecies 就覆盖回去
+      if (petRaw.perSpecies) petState.perSpecies = petRaw.perSpecies;
+    } else {
+      petState = { adopted: false, species: 'chick',
+        unlockedSpecies: ['chick'],
+        perSpecies: { chick: makeSpeciesState() }
+      };
+    }
+
+    // 把当前 species 的状态平铺到 pet 顶层（模板不用改）
+    function syncCurSpecies() {
+      const cur = petState.perSpecies[petState.species];
+      if (cur) {
+        petState.hunger = cur.hunger;
+        petState.stage = cur.stage;
+        petState.lastTick = cur.lastTick;
+      }
+    }
+    // 把顶层当前状态保存回 perSpecies
+    function persistCurSpecies() {
+      petState.perSpecies[petState.species] = {
+        hunger: petState.hunger,
+        stage: petState.stage,
+        lastTick: petState.lastTick || Date.now()
+      };
+    }
+    syncCurSpecies(); // 初始同步
+    const pet = ref(petState);
+
+    // 当前物种 + 当前物种的阶段 emoji
+    const petSpecies = computed(() => speciesMap[pet.value.species] || PET_SPECIES[0]);
+    const petEmoji = computed(() => petSpecies.value.stageEmojis[pet.value.stage]);
+
+    // 根据饱食度强制修正阶段（饱食度过低回退）
+    function normalizePetStage() {
+      const hunger = pet.value.hunger;
+      let newStage = 0;
+      for (let i = PET_STAGES.length - 1; i >= 0; i--) {
+        if (hunger >= PET_STAGES[i].minHunger) { newStage = i; break; }
+      }
+      if (newStage !== pet.value.stage) {
+        pet.value.stage = newStage;
+      }
+    }
+    normalizePetStage();
+
+    // ===== 活跃技能动画 =====
+    const activeSkill = ref(null); // { id, name, emoji, cost, desc }
+    const skillMenuOpen = ref(false);
+    const petSubTab = ref('bag'); // 'bag' 或 'species'
+
+    // 切换技能菜单
+    function toggleSkillMenu() {
+      skillMenuOpen.value = !skillMenuOpen.value;
+      if (skillMenuOpen.value) petWiggle.value = true;
+      setTimeout(() => petWiggle.value = false, 400);
+    }
+    // 点空白处收起
+    function closeSkillMenu() { skillMenuOpen.value = false; }
+
+    // 7 个技能围绕宠物 360° 完整环绕
+    function skillBubbleStyle(idx) {
+      const total = petSpecies.value.skills.length; // 7
+      const radius = 110; // 紧凑一些
+      // 从 -90°（正上方）开始顺时针均匀分布
+      const angle = -90 + (360 * idx / total);
+      const rad = angle * Math.PI / 180;
+      const x = Math.cos(rad) * radius;
+      const y = Math.sin(rad) * radius;
+      return {
+        '--tx': x.toFixed(1) + 'px',
+        '--ty': y.toFixed(1) + 'px'
+      };
+    }
+
     // 上传
     const previewUrl = ref('');
     const fileObj = ref(null);   // Blob（可能是压缩后的）
@@ -840,6 +1800,21 @@ createApp({
     function saveToStorage() {
       if (!suppressSave.value) saveJSON(LS_KEYS.WORDS, words.value);
       saveJSON(LS_KEYS.ERRORS, errors.value);
+      saveJSON(LS_KEYS.POINTS, points.value);
+      saveJSON(LS_KEYS.POINTS_LOG, pointsLog.value.slice(-200));
+      // 宠物：先把当前物种状态同步回 perSpecies 再存
+      if (pet.value.adopted) persistCurSpecies();
+      saveJSON(LS_KEYS.PET, pet.value);
+      saveJSON(LS_KEYS.BACKPACK, backpack.value);
+    }
+
+    // ===== 积分操作 =====
+    function addPoints(delta, reason) {
+      points.value += delta;
+      const entry = { ts: Date.now(), delta, reason, balance: points.value };
+      pointsLog.value.push(entry);
+      if (pointsLog.value.length > 200) pointsLog.value = pointsLog.value.slice(-200);
+      saveToStorage();
     }
 
     // ===== Toast =====
@@ -1104,7 +2079,14 @@ createApp({
       else hideCount = Math.floor(len * 0.4);
 
       const candidates = [];
-      for (let i = 1; i < len - 1; i++) candidates.push(i);
+      // 短单词也保证至少一个可填空 —— 候选从 index 1 开始，到 len-1 结束
+      // 如果 len <= 2，只有 index 0 和 index 1 可选；固定首个字母，隐藏其余
+      const minStart = len <= 2 ? 0 : 1;
+      const maxEnd = len <= 2 ? len : len - 1;
+      for (let i = minStart; i < maxEnd; i++) candidates.push(i);
+      // 兜底：极端情况 candidates 还是空（不应该发生），强制至少一个
+      if (candidates.length === 0 && len >= 1) candidates.push(len - 1);
+
       for (let i = candidates.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
@@ -1183,20 +2165,47 @@ createApp({
       if (!correct) addError(currentWord.value);
       else removeError(target);
 
+      // ===== 积分发放 =====
+      let gainedThisRound = 0;
+      if (correct) {
+        // 连击：上一题也正确 combo+1；否则重置为 1
+        if (lastQuizCorrect.value) combo.value += 1;
+        else combo.value = 1;
+
+        const isErrorMode = (quizSource === 'error');
+        const base = isErrorMode ? 8 : 5;
+        // 连击奖励：每多连击一次 +2（只在上一题也对的时候）
+        const streakBonus = combo.value >= 2 ? (combo.value - 1) * 2 : 0;
+        const gained = base + streakBonus;
+        gainedThisRound = gained;
+        addPoints(gained, isErrorMode
+          ? `错题答对「${target}」(+${combo.value}连击)`
+          : `答对「${target}」(+${combo.value}连击)`);
+      } else {
+        // 做错不扣分，重置连击
+        combo.value = 0;
+      }
+      lastQuizCorrect.value = correct;
+
       showAnswer.value = true;
-      showToast(correct ? '✅ 正确！' : `❌ 正确答案：${target}`);
+      if (correct) {
+        const parts = [`✅ 正确！`];
+        parts.push(`🏆 +${gainedThisRound} 分`);
+        if (combo.value >= 2) parts.push(`🔥 ${combo.value}连击！`);
+        showToast(parts.join('  '));
+      } else {
+        showToast(`❌ 正确答案：${target}`);
+      }
 
       // 自动播放单词发音
       speakCurrent();
 
-      // 正确则自动进入下一个
-      if (correct) {
-        autoAdvancing.value = true;
-        setTimeout(() => {
-          autoAdvancing.value = false;
-          advance();
-        }, 900);
-      }
+      // 不管正确还是错误，都自动进入下一个（900ms 让用户看到反馈）
+      autoAdvancing.value = true;
+      setTimeout(() => {
+        autoAdvancing.value = false;
+        advance();
+      }, 900);
     };
 
     const manualNext = () => {
@@ -1245,36 +2254,247 @@ createApp({
     }
 
     function finishQuiz() {
+      // 完整拼写模式：所有单词都被至少回答过一次 → 奖励
+      // 填空模式：每个单词都累计正确 2 次（或达重试上限） → 结束
+      // 错题模式：全部答完即结束（不管对错） → 也给小奖励
+      const uniqueWordsAnswered = Object.keys(perWordFinal.value).length;
+      const totalWords = words.value.length;
+      const allDone = uniqueWordsAnswered >= totalWords && totalWords > 0;
+      const isErrorMode = (quizSource === 'error');
+      if (allDone) {
+        if (isErrorMode) {
+          addPoints(20, '完成错题复习');
+        } else {
+          addPoints(30, `完成一整套词库练习（共 ${totalWords} 个单词）`);
+        }
+      }
+      // 重置 combo（一次练习结束）
+      combo.value = 0;
+      lastQuizCorrect.value = false;
+
       step.value = 'result';
-      // 错题练习结束后，等用户点返回再恢复；这里只标记
-      // 保持 suppressSave=true，直到用户回到 upload 才恢复
-      // 不在这里自动 restore，否则结果页用的 words 会变
     }
 
     // ========== 填空输入 ==========
+    const getBlankSlots = () => {
+      const slots = [];
+      for (let i = 0; i < blankLetters.value.length; i++) {
+        if (!blankLetters.value[i].fixed) slots.push(i);
+      }
+      return slots;
+    };
+
+    // 输入字母 → 自动跳下一个空
     const onBlankInput = (e, idx) => {
       const v = e.target.value.toLowerCase();
       userBlanks.value[idx] = v;
       if (v) {
-        // 自动跳到下一个可填空
-        const blankInputs = [];
-        for (let i = 0; i < blankLetters.value.length; i++) {
-          if (!blankLetters.value[i].fixed) blankInputs.push(i);
-        }
-        const myPos = blankInputs.indexOf(idx);
-        if (myPos >= 0 && myPos < blankInputs.length - 1) {
-          const el = document.querySelectorAll('.blank-input')[myPos + 1];
-          if (el) el.focus();
+        const slots = getBlankSlots();
+        const myPos = slots.indexOf(idx);
+        if (myPos >= 0 && myPos < slots.length - 1) {
+          const nextEl = document.querySelectorAll('.blank-input')[myPos + 1];
+          if (nextEl) nextEl.focus();
         }
       }
     };
-    // 填空模式下 Enter 提交
+
+    // 统一处理 Enter / Backspace / Delete
+    // 全部 preventDefault，由我们自己完全控制行为
     const onBlankKeydown = (e, idx) => {
-      if (e.key === 'Enter') {
+      const isBack = (e.key === 'Backspace' || e.key === 'Delete' || e.keyCode === 8 || e.keyCode === 46);
+      const isEnter = (e.key === 'Enter' || e.keyCode === 13);
+
+      if (isEnter) {
         e.preventDefault();
         checkAnswer();
+        return;
+      }
+
+      if (isBack) {
+        e.preventDefault(); // 关键！阻止浏览器默认删除行为
+        const slots = getBlankSlots();
+        const myPos = slots.indexOf(idx);
+        const currentVal = userBlanks.value[idx] || '';
+
+        if (currentVal.length > 0) {
+          // 当前空有值 → 删掉最后一个字符
+          userBlanks.value[idx] = currentVal.slice(0, -1);
+          // 保持焦点在当前空
+        } else if (myPos > 0) {
+          // 当前空已空 → 跳到前一个空，删掉它的最后一个字符
+          const prevIdx = slots[myPos - 1];
+          const prevVal = userBlanks.value[prevIdx] || '';
+          if (prevVal.length > 0) {
+            userBlanks.value[prevIdx] = prevVal.slice(0, -1);
+          }
+          // 焦点移到前一个空
+          setTimeout(() => {
+            const allInputs = document.querySelectorAll('.blank-input');
+            const prevEl = allInputs[myPos - 1];
+            if (prevEl) {
+              prevEl.focus();
+              try { prevEl.setSelectionRange(prevEl.value.length, prevEl.value.length); } catch (err) {}
+            }
+          }, 0);
+        }
       }
     };
+
+    // ========== 宠物系统 ==========
+    // 领养第一只宠物 — 可选任意物种
+    function adoptPet(sp) {
+      const price = sp.price || 0;
+      if (price > 0 && points.value < price) {
+        showToast(`积分不足！需要 ${price} 积分背单词赚积分`);
+        return;
+      }
+      if (price > 0) {
+        points.value -= price;
+        addPoints(-price, `领养 ${sp.name}`);
+      }
+      pet.value.adopted = true;
+      pet.value.species = sp.id;
+      pet.value.perSpecies = pet.value.perSpecies || {};
+      pet.value.perSpecies[sp.id] = makeSpeciesState(50, 0);
+      pet.value.unlockedSpecies = [sp.id];
+      syncCurSpecies(); // 平铺到顶层
+      saveToStorage();
+      showToast(`🎉 ${sp.name} 领养成功！${price === 0 ? '免费' : '花了 ' + price + ' 积分'}`);
+    }
+
+    // 切换宠物种类 / 解锁新种类
+    function switchOrUnlockSpecies(sp) {
+      const unlocked = pet.value.unlockedSpecies.includes(sp.id);
+      if (unlocked) {
+        // 已解锁 → 保存当前状态 + 切换
+        persistCurSpecies();
+        pet.value.species = sp.id;
+        syncCurSpecies();
+        showToast(`切换为 ${sp.name}！`);
+        saveToStorage();
+        return;
+      }
+      // 未解锁 → 检查积分
+      if (points.value < sp.price) {
+        showToast(`积分不足！需要 ${sp.price} 积分`);
+        return;
+      }
+      addPoints(-sp.price, `解锁宠物「${sp.name}」`);
+      persistCurSpecies();
+      pet.value.unlockedSpecies.push(sp.id);
+      pet.value.perSpecies[sp.id] = makeSpeciesState(50, 0); // 新物种初始饱食度 50
+      pet.value.species = sp.id;
+      syncCurSpecies();
+      saveToStorage();
+      showToast(`🎉 解锁了 ${sp.name}！`);
+    }
+
+    // 表演技能：消耗饱食度 + 动画 + toast
+    function performSkill(sk) {
+      if (pet.value.hunger < sk.cost) { showToast('饱食度不够啦，先喂喂它'); return; }
+      pet.value.hunger -= sk.cost;
+      normalizePetStage();
+
+      // 先设置动画 → 再 setTimeout 收起气泡（让 DOM 稳定，不打断动画）
+      activeSkill.value = sk;
+      showToast(`${sk.emoji} ${sk.name}！${sk.desc}`);
+
+      setTimeout(() => {
+        skillMenuOpen.value = false; // 动画开始后再收起菜单
+      }, 100);
+      setTimeout(() => {
+        activeSkill.value = null;    // 1.5s 后结束动画
+      }, 1800);
+    }
+
+    // 饱食度自然下降：遍历所有已解锁物种各自算（每 90 秒掉 1 点）
+    function tickHunger() {
+      if (!pet.value.adopted) return;
+      const now = Date.now();
+      let changed = false;
+      const per = pet.value.perSpecies || {};
+      for (const sid of pet.value.unlockedSpecies) {
+        const s = per[sid];
+        if (!s) continue;
+        const elapsed = now - s.lastTick;
+        if (elapsed >= HUNGER_DECAY_MS) {
+          const drops = Math.floor(elapsed / HUNGER_DECAY_MS);
+          s.hunger = Math.max(0, s.hunger - drops);
+          s.lastTick = now - (elapsed % HUNGER_DECAY_MS);
+          // 阶段是否需要更新？
+          let newStage = 0;
+          for (let i = PET_STAGES.length - 1; i >= 0; i--) {
+            if (s.hunger >= PET_STAGES[i].minHunger) { newStage = i; break; }
+          }
+          s.stage = newStage;
+          changed = true;
+        }
+      }
+      // 如果当前激活物种也被改过 → 同步到顶层让模板刷新
+      const cur = per[pet.value.species];
+      if (cur) {
+        pet.value.hunger = cur.hunger;
+        pet.value.stage = cur.stage;
+        pet.value.lastTick = cur.lastTick;
+      }
+      if (changed) saveJSON(LS_KEYS.PET, pet.value);
+    }
+
+    // 当前阶段离下一阶段还差多少饱食度
+    const hungerToNextStage = computed(() => {
+      if (!pet.value.adopted) return 0;
+      const next = PET_STAGES[pet.value.stage + 1];
+      if (!next) return 0; // 已是最终阶段
+      return Math.max(0, next.minHunger - pet.value.hunger);
+    });
+
+    const petStageInfo = computed(() => PET_STAGES[pet.value.stage]);
+    const isMaxStage = computed(() => pet.value.stage >= PET_STAGES.length - 1);
+
+    // 喂食 — 核心：加饱食度，检查是否进化
+    function feedFood(foodId) {
+      if (!pet.value.adopted) { showToast('先领养一只宠物吧'); return; }
+      const count = backpack.value[foodId] || 0;
+      if (count <= 0) { showToast('背包里没有这种食物了'); return; }
+      const food = foodMap[foodId];
+
+      backpack.value[foodId] = count - 1;
+      if (backpack.value[foodId] <= 0) delete backpack.value[foodId];
+
+      const oldStage = pet.value.stage;
+      pet.value.hunger = Math.min(PET_MAX_HUNGER, pet.value.hunger + food.hunger);
+      normalizePetStage();
+
+      showToast(`${food.emoji} 喂食「${food.name}」饱食度 +${food.hunger}`);
+
+      if (pet.value.stage > oldStage) {
+        // 进化弹窗
+        evolveModal.value = { from: oldStage, to: pet.value.stage };
+      }
+    }
+
+    function closeEvolveModal() { evolveModal.value = null; }
+
+    // 宠物互动：摇动 + 表情
+    const petWiggle = ref(false);
+    function wigglePet() {
+      petWiggle.value = true;
+      setTimeout(() => petWiggle.value = false, 600);
+    }
+
+    // ========== 商店系统 ==========
+    function buyFood(foodId) {
+      const food = foodMap[foodId];
+      if (points.value < food.price) {
+        showToast('积分不足！去背单词赚积分吧');
+        return;
+      }
+      addPoints(-food.price, `购买「${food.name}」`);
+      backpack.value[foodId] = (backpack.value[foodId] || 0) + 1;
+      showToast(`${food.emoji} 购买成功！已放入背包`);
+    }
+
+    function foodCount(foodId) { return backpack.value[foodId] || 0; }
 
     // ========== 结果页操作 ==========
     const restartQuiz = () => {
@@ -1286,6 +2506,7 @@ createApp({
     };
 
     // ========== 首次加载 ==========
+    let tickTimer = null;
     onMounted(() => {
       const savedWords = loadJSON(LS_KEYS.WORDS);
       const savedErrors = loadJSON(LS_KEYS.ERRORS);
@@ -1293,6 +2514,9 @@ createApp({
       if (savedErrors && savedErrors.length > 0) errors.value = savedErrors;
       // 后台静默补齐缺失的音标/发音（不阻塞用户操作）
       refillMissingPhonetics();
+      // 启动宠物饱食度自然下降 tick
+      tickHunger();          // 立刻跑一次，处理累计掉分
+      tickTimer = setInterval(tickHunger, 30 * 1000); // 每 30 秒检查一次
     });
 
     async function refillMissingPhonetics() {
@@ -1315,6 +2539,11 @@ createApp({
 
     // watch: words 变化 → 存
     watch(words, () => saveToStorage(), { deep: true });
+    watch(errors, () => saveToStorage(), { deep: true });
+    watch(points, () => saveToStorage());
+    watch(pointsLog, () => saveToStorage(), { deep: true });
+    watch(pet, () => saveToStorage(), { deep: true });
+    watch(backpack, () => saveToStorage(), { deep: true });
 
     return {
       // state
@@ -1324,15 +2553,31 @@ createApp({
       queue, results, perWordFinal, currentIndex, userAnswer, showAnswer, autoAdvancing, shakeFlag,
       blankLetters, userBlanks, blankStates,
       fullInput,
+      // 积分
+      points, pointsLog, combo,
+      // 宠物
+      pet, evolveModal, petWiggle, activeSkill, skillMenuOpen, petSubTab,
+      PET_STAGES, PET_MAX_HUNGER, PET_SPECIES,
+      // 商店
+      FOODS, foodMap, backpack,
       // computed
       currentWord, answerState, progress, correctCount, uniqueCorrectCount, resultMsg,
+      hungerToNextStage, petStageInfo, isMaxStage, petSpecies, petEmoji,
       // methods
       triggerUpload, handleFile, removeImage, startOcr,
       removeWord, addManual, confirmManual, resetAll,
       practiceErrors,
       goQuiz, exitQuiz, flipCard, checkAnswer, manualNext,
       switchMode, restartQuiz, backToUpload,
-      onBlankInput, onBlankKeydown, speakCurrent, saveToStorage
+      onBlankInput, onBlankKeydown, speakCurrent, saveToStorage,
+      // 积分
+      addPoints,
+      // 宠物
+      adoptPet, feedFood, wigglePet, closeEvolveModal,
+      switchOrUnlockSpecies, performSkill,
+      toggleSkillMenu, closeSkillMenu, skillBubbleStyle,
+      // 商店
+      buyFood, foodCount
     };
   }
 }).mount('#app');

@@ -37,6 +37,9 @@ if (-not $listener) {
     exit 1
 }
 
+# Write actual port to file so start.bat can auto-open browser
+"$Port" | Set-Content -Path (Join-Path $root '.port') -Encoding ASCII
+
 $localIP = (Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169*' -and $_.PrefixOrigin -ne 'WellKnown' } | Select-Object -First 1 -ExpandProperty IPAddress)
 
 Write-Host "==========================================" -ForegroundColor Cyan
@@ -78,4 +81,7 @@ try {
     }
 } finally {
     $listener.Stop()
+    # Clean up port file
+    $pf = Join-Path $root '.port'
+    if (Test-Path $pf) { Remove-Item $pf -Force }
 }
